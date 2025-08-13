@@ -1,0 +1,23 @@
+# Node
+node_modules/
+dist/
+build/
+*.log
+
+# Vite / React
+.vite/
+
+# Env
+.env*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# App runtime (backend)
+packages/backend/tmp/
+packages/backend/uploads/
+
+# Vercel/CI local
+.vercel/
