@@ -32,6 +32,12 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// simple health check
+app.get('/health', (req, res) => {
+  res.json({ ok: true, uptime: process.uptime(), ts: new Date().toISOString() });
+});
+
+
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 
 // Multer config for temporary file storage
