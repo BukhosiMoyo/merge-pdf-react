@@ -9,12 +9,11 @@ import { v4 as uuid } from 'uuid';
 import pino from 'pino';
 import dotenv from 'dotenv';
 import archiver from 'archiver';
-import { promises as fsp } from 'fs';
-
+import { promises as fsp } from 'fs'; // for stats
 
 dotenv.config();
 
-// must come before any use of __dirname
+// ✅ define these BEFORE any use of __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -36,7 +35,6 @@ async function writeCounter(obj) {
   await fsp.writeFile(COUNTER_PATH, JSON.stringify(obj), 'utf8');
 }
 
-// increment helper
 async function bumpTotal() {
   const s = await readCounter();
   s.total_compressed = (s.total_compressed || 0) + 1;
@@ -44,7 +42,6 @@ async function bumpTotal() {
   await writeCounter(s);
   return s;
 }
-
 
 // Ensure working folders exist in production
 const UP_DIR = path.join(__dirname, '../uploads');
