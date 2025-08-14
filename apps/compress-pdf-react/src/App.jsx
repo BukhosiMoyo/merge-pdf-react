@@ -198,6 +198,70 @@ const ghostBtn = {
   fontWeight: 600,
 };
 
+// --- Animated number (no React. prefix) ---
+function AnimatedNumber({ value, duration = 800 }) {
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    let raf, start;
+    const from = display;
+    const to = value;
+    const step = (ts) => {
+      if (!start) start = ts;
+      const p = Math.min(1, (ts - start) / duration);
+      setDisplay(Math.round(from + (to - from) * p));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return <>{display.toLocaleString()}</>;
+}
+
+// --- StatCompressedTotal (use API_BASE and hooks directly) ---
+function StatCompressedTotal() {
+  const [total, setTotal] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API_BASE}/v1/stats/summary`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('bad_response'))))
+      .then((s) => {
+        if (alive) setTotal(s.total_compressed || 0);
+      })
+      .catch(() => {
+        if (alive) setTotal(0);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  return (
+    <div
+      style={{
+        maxWidth: 800,
+        margin: '16px auto 0',
+        textAlign: 'center',
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px dashed rgba(255,255,255,0.12)',
+        padding: '12px 16px',
+        borderRadius: 10,
+      }}
+    >
+      <div style={{ fontSize: 14, opacity: 0.85, marginBottom: 4 }}>
+        Total PDFs Compressed
+      </div>
+      <div style={{ fontSize: 28, fontWeight: 800 }}>
+        {total === null ? '—' : <AnimatedNumber value={total} />}
+      </div>
+    </div>
+  );
+}
+
+
 /* =========================
    SMALL HELPERS
    ========================= */
@@ -579,7 +643,7 @@ export default function App() {
 
       <div style={container} className="container-sm">
         {/* Intro */}
-        <div style={{ marginBottom: 16, textAlign: "center" }}>
+        <div style={{ marginBottom: 40, textAlign: "center" }}>
           <h1 style={h1} className="titleClamp">
             {t("title")}
           </h1>
@@ -971,8 +1035,129 @@ export default function App() {
           )}
         </div>
 
+        {/* Privacy notice + FAQs (centered, max 800px) */}
+        <section
+          style={{
+            maxWidth: 800,
+            margin: "24px auto 32px",
+            padding: "0 16px",
+            textAlign: "center",
+          }}
+        >
+          {/* Highlighted auto-delete notice */}
+          <div
+            style={{
+              display: "inline-block",
+              textAlign: "left",
+              background: "#fef3c7",            // amber-100
+              border: "1px solid #fbbf24",      // amber-400
+              color: "#78350f",                  // amber-900
+              padding: "10px 14px",
+              borderRadius: 10,
+              fontWeight: 700,
+            }}
+          >
+            ⚠ Files are automatically deleted <span style={{textDecoration:"underline"}}>15 minutes</span> after upload for your privacy.
+          </div>
+
+          {/* NEW: single stat */}
+          <StatCompressedTotal />
+
+          {/* FAQ heading */}
+          <h2 style={{ marginTop: 60, marginBottom: 12, fontSize: 30, fontWeight: 900 }}>
+            Frequently Asked Questions
+          </h2>
+
+          {/* FAQ list (left-aligned inside the centered container) */}
+          <div style={{ textAlign: "left", color: "#cbd5e1", lineHeight: 1.6 }}>
+            <div style={{ marginTop: 16 }}>
+              <h3 style={{ color: "#e2e8f0", fontWeight: 800,  margin: "0 0 6px" }}>
+                What is CompressPDF.co.za?
+              </h3>
+              <p>
+                CompressPDF.co.za is a fast, free, and secure tool for reducing the size of PDF
+                documents without noticeably affecting readability. Upload, compress, and download—no
+                signup required.
+              </p>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <h3 style={{ color: "#e2e8f0", fontWeight: 800, margin: "0 0 6px" }}>
+                How do I compress a PDF file?
+              </h3>
+              <p>
+                Click <em>Add files</em> (or drag &amp; drop your PDF), choose your options, and hit
+                <em> Compress PDF</em>. In a few seconds, you’ll get a download link to the optimized file.
+              </p>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <h3 style={{ color: "#e2e8f0", fontWeight: 800, margin: "0 0 6px" }}>
+                Will the quality of my PDF be affected?
+              </h3>
+              <p>
+                The compressor balances size and clarity. The default setting keeps documents readable
+                while reducing file size significantly. If you need smaller files, choose a higher
+                compression level (with some quality trade‑off). For best quality, pick a lower
+                compression level.
+              </p>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <h3 style={{ color: "#e2e8f0", fontWeight: 800, margin: "0 0 6px" }}>
+                Is it safe to upload my files?
+              </h3>
+              <p>
+                Yes. Uploads are processed securely, and your files are not shared. For additional
+                privacy, you can remove metadata during compression.
+              </p>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <h3 style={{ color: "#e2e8f0", fontWeight: 800, margin: "0 0 6px" }}>
+                When are my files deleted?
+              </h3>
+              <p>
+                All uploaded and processed files are automatically deleted from our servers
+                <strong> 15 minutes</strong> after upload. If you share a link, the recipient should
+                download the file within that time window.
+              </p>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <h3 style={{ color: "#e2e8f0", fontWeight: 800, margin: "0 0 6px" }}>
+                What is the maximum file size?
+              </h3>
+              <p>
+                The current upload limit is <strong>50&nbsp;MB</strong> per PDF. This keeps the service
+                responsive for everyone. Larger limits may be introduced later.
+              </p>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <h3 style={{ color: "#e2e8f0", fontWeight: 800, margin: "0 0 6px" }}>
+                Does it work on mobile?
+              </h3>
+              <p>
+                Absolutely. The tool is optimized for phones, tablets, and desktops—no app installation
+                needed.
+              </p>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <h3 style={{ color: "#e2e8f0", fontWeight: 800, margin: "0 0 6px" }}>
+                Is the service free?
+              </h3>
+              <p>
+                Yes, the core compression tool is free to use. We plan to add more PDF utilities over
+                time while keeping the experience simple and fast.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <div style={{ marginTop: 10, textAlign: "center", ...subtle }}>
-          Files auto-delete after 15 minutes. © {new Date().getFullYear()} CompressPDF
+          Powered By <a href="https://symaxx.com" rel="follow">Symaxx Digital.</a> © {new Date().getFullYear()} CompressPDF
         </div>
       </div>
     </div>

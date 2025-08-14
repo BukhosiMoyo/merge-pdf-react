@@ -8,13 +8,43 @@ import { fileURLToPath } from 'url';
 import { v4 as uuid } from 'uuid';
 import pino from 'pino';
 import dotenv from 'dotenv';
-import archiver from 'archiver'; 
+import archiver from 'archiver';
+import { promises as fsp } from 'fs';
 
 
 dotenv.config();
 
+// must come before any use of __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// --- simple persistent counter for total PDFs compressed --- //
+const DATA_DIR = path.join(__dirname, '../data');     // new folder
+const COUNTER_PATH = path.join(DATA_DIR, 'stats.json');
+
+async function readCounter() {
+  try {
+    const raw = await fsp.readFile(COUNTER_PATH, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return { total_compressed: 0, updated_at: new Date().toISOString() };
+  }
+}
+
+async function writeCounter(obj) {
+  await fsp.mkdir(DATA_DIR, { recursive: true });
+  await fsp.writeFile(COUNTER_PATH, JSON.stringify(obj), 'utf8');
+}
+
+// increment helper
+async function bumpTotal() {
+  const s = await readCounter();
+  s.total_compressed = (s.total_compressed || 0) + 1;
+  s.updated_at = new Date().toISOString();
+  await writeCounter(s);
+  return s;
+}
+
 
 // Ensure working folders exist in production
 const UP_DIR = path.join(__dirname, '../uploads');
@@ -41,6 +71,16 @@ app.use((req, _res, next) => {
 // simple health check
 app.get('/health', (req, res) => {
   res.json({ ok: true, uptime: process.uptime(), ts: new Date().toISOString() });
+});
+
+// public stats summary for homepage
+app.get('/v1/stats/summary', async (req, res) => {
+  try {
+    const s = await readCounter();
+    res.json(s);
+  } catch (e) {
+    res.status(500).json({ error: { code: 'stats_read_failed', message: e.message } });
+  }
 });
 
 
@@ -142,9 +182,13 @@ app.post('/v1/pdf/compress', upload.single('file'), async (req, res) => {
     gs.on('close', (code) => {
       clearTimeout(watchdog);
 
+
       if (code !== 0 || !fs.existsSync(outPath)) {
         return res.status(422).json({ error: { code: 'processing_failed', message: 'Ghostscript failed' } });
       }
+
+        // bump global counter on successful compression
+      bumpTotal().catch(e => log.error({ bump_error: e.message }));
 
       const outSize = fs.statSync(outPath).size;
       const ratio = 1 - (outSize / size);
