@@ -355,34 +355,36 @@ function Header({ locale, changeLocale }) {
    ========================= */
 export default function App() {
 
-  // ↓↓↓ Add right after: export default function App() {
-  const [agg, setAgg] = React.useState({ reviewCount: 0, ratingValue: 0 });
+  // use the named hooks you already import at the top
+  const [agg, setAgg] = useState({ reviewCount: 0, ratingValue: 0 });
 
   // fetch reviews summary and inject/update JSON‑LD
-  React.useEffect(() => {
-    async function run() {
+  useEffect(() => {
+    (async () => {
       try {
         const res = await fetch(`${API_BASE}/v1/reviews/summary`, { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
-        setAgg({ reviewCount: data.reviewCount || 0, ratingValue: data.ratingValue || 0 });
+        const reviewCount = data.reviewCount || 0;
+        const ratingValue = data.ratingValue || 0;
+
+        setAgg({ reviewCount, ratingValue });
 
         const jsonld = {
           "@context": "https://schema.org",
           "@type": "WebSite",
           "name": "CompressPDF.co.za",
           "url": "https://compresspdf.co.za/",
-          "inLanguage": "en", // your default, hreflang pages will override
+          "inLanguage": "en",
           "aggregateRating": {
             "@type": "AggregateRating",
-            "ratingValue": (data.ratingValue || 0).toFixed(2),
-            "reviewCount": data.reviewCount || 0,
+            "ratingValue": Number(ratingValue).toFixed(2),
+            "reviewCount": reviewCount,
             "bestRating": 5,
             "worstRating": 1
           }
         };
 
-        // add or update a single <script> tag for AggregateRating
         let tag = document.getElementById("ld-aggregate");
         if (!tag) {
           tag = document.createElement("script");
@@ -392,13 +394,10 @@ export default function App() {
         }
         tag.textContent = JSON.stringify(jsonld);
       } catch (e) {
-        // ignore errors silently; schema isn’t critical to render
         console.warn("aggregate schema injection failed:", e);
       }
-    }
-    run();
-  }, []); // runs once on mount
-
+    })();
+  }, []);
 
 
   /* 1) Router params */
@@ -421,8 +420,6 @@ export default function App() {
     }
     fetchReviewStats();
   }, []);
-
-
 
 
 
@@ -1291,17 +1288,18 @@ export default function App() {
               "@context": "https://schema.org",
               "@type": "WebApplication",
               "name": "Compress PDF Tool",
-              "url": "https://yourdomain.com",
+              "url": "https://compresspdf.co.za",
               "aggregateRating": {
                 "@type": "AggregateRating",
-                "ratingValue": reviewStats.avg_rating,
-                "reviewCount": reviewStats.count
+                "ratingValue": Number(reviewStats.average || 0).toFixed(2),
+                "reviewCount": reviewStats.count || 0,
+                "bestRating": 5,
+                "worstRating": 1
               }
             })
           }}
         />
       )}
-
     </div>
   );
 }
