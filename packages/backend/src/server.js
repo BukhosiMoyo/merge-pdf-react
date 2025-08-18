@@ -21,6 +21,29 @@ const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, '../data');     // new folder
 const COUNTER_PATH = path.join(DATA_DIR, 'stats.json');
 
+// --- simple reviews storage (aggregate only) --- //
+const REVIEWS_PATH = path.join(DATA_DIR, 'reviews.json');
+
+async function readReviews() {
+  try {
+    const raw = await fsp.readFile(REVIEWS_PATH, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return {
+      count: 0,
+      sum: 0,
+      distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 },
+      updated_at: new Date().toISOString()
+    };
+  }
+}
+
+async function writeReviews(obj) {
+  await fsp.mkdir(DATA_DIR, { recursive: true });
+  await fsp.writeFile(REVIEWS_PATH, JSON.stringify(obj), 'utf8');
+}
+
+
 async function readCounter() {
   try {
     const raw = await fsp.readFile(COUNTER_PATH, 'utf8');
@@ -79,6 +102,46 @@ app.get('/v1/stats/summary', async (req, res) => {
     res.status(500).json({ error: { code: 'stats_read_failed', message: e.message } });
   }
 });
+
+
+// public reviews summary (for JSON-LD injection)
+app.get('/v1/reviews/summary', async (_req, res) => {
+  try {
+    const r = await readReviews();
+    const avg = r.count ? (r.sum / r.count) : 0;
+    res.json({
+      reviewCount: r.count,
+      ratingValue: Number(avg.toFixed(2)),
+      distribution: r.distribution,
+      updated_at: r.updated_at
+    });
+  } catch (e) {
+    res.status(500).json({ error: { code: 'reviews_read_failed', message: e.message } });
+  }
+});
+
+// accept a new rating (1..5)
+app.post('/v1/reviews', async (req, res) => {
+  try {
+    const { rating } = req.body || {};
+    const n = Number(rating);
+    if (!Number.isInteger(n) || n < 1 || n > 5) {
+      return res.status(400).json({ error: { code: 'invalid_rating', message: 'rating must be 1..5' } });
+    }
+    const r = await readReviews();
+    r.count += 1;
+    r.sum += n;
+    r.distribution[String(n)] = (r.distribution[String(n)] || 0) + 1;
+    r.updated_at = new Date().toISOString();
+    await writeReviews(r);
+    const avg = r.sum / r.count;
+    res.json({ ok: true, reviewCount: r.count, ratingValue: Number(avg.toFixed(2)) });
+  } catch (e) {
+    res.status(500).json({ error: { code: 'reviews_write_failed', message: e.message } });
+  }
+});
+
+
 
 // POST /v1/reviews  { rating: 1..5, locale?: 'en' | 'af' | ... }
 app.post('/v1/reviews', express.json(), async (req, res) => {
