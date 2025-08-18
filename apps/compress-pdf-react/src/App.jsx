@@ -354,6 +354,53 @@ function Header({ locale, changeLocale }) {
    APP
    ========================= */
 export default function App() {
+
+  // ↓↓↓ Add right after: export default function App() {
+  const [agg, setAgg] = React.useState({ reviewCount: 0, ratingValue: 0 });
+
+  // fetch reviews summary and inject/update JSON‑LD
+  React.useEffect(() => {
+    async function run() {
+      try {
+        const res = await fetch(`${API_BASE}/v1/reviews/summary`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        setAgg({ reviewCount: data.reviewCount || 0, ratingValue: data.ratingValue || 0 });
+
+        const jsonld = {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "name": "CompressPDF.co.za",
+          "url": "https://compresspdf.co.za/",
+          "inLanguage": "en", // your default, hreflang pages will override
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": (data.ratingValue || 0).toFixed(2),
+            "reviewCount": data.reviewCount || 0,
+            "bestRating": 5,
+            "worstRating": 1
+          }
+        };
+
+        // add or update a single <script> tag for AggregateRating
+        let tag = document.getElementById("ld-aggregate");
+        if (!tag) {
+          tag = document.createElement("script");
+          tag.type = "application/ld+json";
+          tag.id = "ld-aggregate";
+          document.head.appendChild(tag);
+        }
+        tag.textContent = JSON.stringify(jsonld);
+      } catch (e) {
+        // ignore errors silently; schema isn’t critical to render
+        console.warn("aggregate schema injection failed:", e);
+      }
+    }
+    run();
+  }, []); // runs once on mount
+
+
+
   /* 1) Router params */
   const { locale: routeLocale } = useParams();
   const navigate = useNavigate();
@@ -660,6 +707,8 @@ export default function App() {
     a.click();
     a.remove();
   };
+
+  
 
   return (
     <div style={page}>
