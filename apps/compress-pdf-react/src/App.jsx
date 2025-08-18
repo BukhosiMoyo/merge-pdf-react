@@ -2,6 +2,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { FiTrash2, FiArrowRight, FiArchive, FiRefreshCw } from "react-icons/fi";
 import logo from "/CompressPDFLogo.webp";
+import ReviewModal from "./components/ReviewModal";
+import { useReviewPrompt } from "./hooks/useReviewPrompt";
 
 /* =========================
    I18N MESSAGES
@@ -274,6 +276,19 @@ function estimateSavings(bytes, level) {
   return { percent: Math.round(mid * 100), projectedMb: Math.max(mb - saved, 0.01) };
 }
 
+// ---- JSON‑LD injector (adds/updates a <script type="application/ld+json">) ----
+function upsertJsonLd(id, data) {
+  let el = document.getElementById(id);
+  if (!el) {
+    el = document.createElement('script');
+    el.type = 'application/ld+json';
+    el.id = id;
+    document.head.appendChild(el);
+  }
+  el.textContent = JSON.stringify(data);
+}
+
+
 /* =========================
    HEADER
    ========================= */
@@ -342,6 +357,27 @@ export default function App() {
   /* 1) Router params */
   const { locale: routeLocale } = useParams();
   const navigate = useNavigate();
+  const [showReview, setShowReview] = useState(false);
+  const { shouldAsk, markAsked, markRated } = useReviewPrompt();
+
+
+    // ✅ Fetch review stats once when app loads
+  useEffect(() => {
+    async function fetchReviewStats() {
+      try {
+        const res = await fetch("/v1/reviews/summary");
+        const data = await res.json();
+        setReviewStats(data);
+      } catch (e) {
+        console.error("Failed to fetch review stats", e);
+      }
+    }
+    fetchReviewStats();
+  }, []);
+
+
+
+
 
   /* 2) Initial locale and state (single source of truth) */
   const initialLocale = SUPPORTED.includes(routeLocale || "")
@@ -380,6 +416,7 @@ export default function App() {
     }
     m.setAttribute("content", desc);
   }, [locale]);
+
 
   /* 5) SEO: canonical + hreflang + social tags */
   useEffect(() => {
@@ -438,11 +475,28 @@ export default function App() {
   }, [locale]);
 
   /* 6) App state */
-  const [step, setStep] = useState(1); // 1 upload, 2 options, 3 results
+  const [step, setStep] = useState(1);
+  // Reviews aggregate stats (live)
+  const [reviewStats, setReviewStats] = useState({ count: 0, average: 5 });
   const inputRef = useRef(null);
-  const [files, setFiles] = useState([]); // {key,file,status,progress,result,error}
+  const [files, setFiles] = useState([]);
   const [compression, setCompression] = useState("medium");
   const [removeMeta, setRemoveMeta] = useState("false");
+  const [forceReviewOpen, setForceReviewOpen] = useState(false); // turn off debug pop
+
+
+
+  // ✅ now it's safe to use step/files
+  useEffect(() => {
+    if (step === 3 && files.some(f => f.status === "done" && f.result)) {
+      if (shouldAsk()) {
+        setShowReview(true);
+        markAsked();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, files]);
+
 
   /* 7) i18n helpers */
   const t = (key, vars = {}) => {
@@ -1031,8 +1085,19 @@ export default function App() {
                   </button>
                 </div>
               </div>
+
+              {/* 🔔 Review modal lives here */}
+              <ReviewModal
+                open={showReview}
+                onClose={() => setShowReview(false)}
+                onSubmit={(stars) => {
+                  markRated(stars);
+                  setShowReview(false);
+                }}
+              />
             </div>
           )}
+
         </div>
 
         {/* Privacy notice + FAQs (centered, max 800px) */}
@@ -1156,10 +1221,38 @@ export default function App() {
           </div>
         </section>
 
+        <ReviewModal
+          open={forceReviewOpen}
+          onClose={() => setForceReviewOpen(false)}
+          onSubmit={(stars) => {
+            console.log("DEBUG: submitted stars =", stars);
+            setForceReviewOpen(false);
+          }}
+        />
+
         <div style={{ marginTop: 10, textAlign: "center", ...subtle }}>
           Powered By <a href="https://symaxx.com" rel="follow">Symaxx Digital.</a> © {new Date().getFullYear()} CompressPDF
         </div>
       </div>
+      {reviewStats && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebApplication",
+              "name": "Compress PDF Tool",
+              "url": "https://yourdomain.com",
+              "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": reviewStats.avg_rating,
+                "reviewCount": reviewStats.count
+              }
+            })
+          }}
+        />
+      )}
+
     </div>
   );
 }

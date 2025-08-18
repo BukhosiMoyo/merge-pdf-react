@@ -80,6 +80,51 @@ app.get('/v1/stats/summary', async (req, res) => {
   }
 });
 
+// POST /v1/reviews  { rating: 1..5, locale?: 'en' | 'af' | ... }
+app.post('/v1/reviews', express.json(), async (req, res) => {
+  try {
+    const { rating, locale } = req.body || {};
+    const r = Number(rating);
+    if (!Number.isFinite(r) || r < 1 || r > 5) {
+      return res.status(400).json({ error: { code: 'invalid_rating', message: 'Rating must be 1..5' } });
+    }
+
+    // basic rate-limit by IP hash (<= 1 submit per 12h)
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString();
+    const ipHash = Buffer.from(ip).toString('base64').slice(0, 16);
+    const now = Date.now();
+
+    const reviews = await readReviews();
+    const recent = reviews.findLast(r => r.ipHash === ipHash);
+    if (!recent || (now - recent.ts) >= 12 * 60 * 60 * 1000) {
+      reviews.push({
+        rating: Math.round(r),
+        locale: typeof locale === 'string' ? locale : 'en',
+        ts: now,
+        ipHash
+      });
+      await writeReviews(reviews);
+    }
+
+    const total = summarize(reviews);
+    return res.json({ ok: true, ...total });
+  } catch (e) {
+    return res.status(500).json({ error: { code: 'reviews_write_failed', message: e.message } });
+  }
+});
+
+// GET /v1/reviews/summary[?locale=en]
+app.get('/v1/reviews/summary', async (req, res) => {
+  try {
+    const { locale } = req.query || {};
+    const reviews = await readReviews();
+    return res.json(summarize(reviews, typeof locale === 'string' ? locale : undefined));
+  } catch (e) {
+    return res.status(500).json({ error: { code: 'reviews_read_failed', message: e.message } });
+  }
+});
+
+
 
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -186,6 +231,33 @@ app.post('/v1/pdf/compress', upload.single('file'), async (req, res) => {
 
         // bump global counter on successful compression
       bumpTotal().catch(e => log.error({ bump_error: e.message }));
+
+      // --- reviews storage (very simple JSON file) ---
+      const REVIEWS_PATH = path.join(DATA_DIR, 'reviews.json');
+
+      async function readReviews() {
+        try {
+          const raw = await fsp.readFile(REVIEWS_PATH, 'utf8');
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+
+      async function writeReviews(arr) {
+        await fsp.mkdir(DATA_DIR, { recursive: true });
+        await fsp.writeFile(REVIEWS_PATH, JSON.stringify(arr), 'utf8');
+      }
+
+      function summarize(reviews, locale) {
+        const list = locale ? reviews.filter(r => r.locale === locale) : reviews;
+        const ratingCount = list.length;
+        const ratingValue = ratingCount
+          ? Number((list.reduce((s, r) => s + r.rating, 0) / ratingCount).toFixed(1))
+          : 0;
+        return { ratingCount, ratingValue };
+      }
 
       const outSize = fs.statSync(outPath).size;
       const ratio = 1 - (outSize / size);

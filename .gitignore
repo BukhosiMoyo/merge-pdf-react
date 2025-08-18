@@ -21,3 +21,4 @@ packages/backend/uploads/
 
 # Vercel/CI local
 .vercel/
+packages/backend/data/
