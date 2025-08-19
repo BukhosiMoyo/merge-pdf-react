@@ -82,7 +82,7 @@
           }
         ]
       }
-    +</script>
+    </script>
 
     <!-- Organization -->
     <script type="application/ld+json" id="ld-org">
@@ -111,14 +111,29 @@
     }
     </script>
 
-    <!-- Placeholder AggregateRating (React will overwrite with live data) -->
     <script type="application/ld+json" id="ld-aggregate">
-    { "@context": "https://schema.org", "@type": "Product",
-      "name": "Compress PDF",
-      "aggregateRating": { "@type": "AggregateRating", "ratingValue": "0", "ratingCount": "0" }
-    }
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "CompressPDF.co.za",
+        "url": "https://compresspdf.co.za/",
+        "applicationCategory": "UtilityApplication",
+        "operatingSystem": "All",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "ZAR",
+          "url": "https://compresspdf.co.za/"
+        },
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": "0.00",
+          "reviewCount": "0",
+          "bestRating": "5",
+          "worstRating": "1"
+        }
+      }
     </script>
-
 
   </head>
 
