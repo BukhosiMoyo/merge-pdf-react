@@ -1,0 +1,26 @@
+:root{ --red:#e53935; }
+body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f6f7fb; color:#111; }
+.mergeWrap{ max-width:1200px; margin:0 auto; padding:24px; }
+.titleClamp{ font-size: clamp(28px, 5vw, 44px); line-height:1.1; }
+.subtleClamp{ opacity:.75; }
+.zeroState{ text-align:center; padding:72px 12px; }
+.ctaHuge{ font-size:22px; padding:18px 36px; border:none; border-radius:999px; background:var(--red); color:#fff; cursor:pointer; box-shadow:0 8px 16px rgba(229,57,53,.25); }
+.ctaHuge:hover{ transform:translateY(-1px); }
+.dropHint{ opacity:.6; margin-top:10px; }
+.builderTop{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; gap:12px; }
+.btnGhost{ background:#fff; border:1px solid #e8e8e8; border-radius:999px; padding:8px 14px; cursor:pointer; }
+.sortBtns button{ margin-left:8px; }
+.tilesGrid{ display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap:16px; }
+@media (max-width:1440px){ .tilesGrid{ grid-template-columns: repeat(5,1fr); } }
+@media (max-width:1024px){ .tilesGrid{ grid-template-columns: repeat(3,1fr); } }
+@media (max-width:768px){ .tilesGrid{ grid-template-columns: repeat(2,1fr); } }
+.mergeTile{ background:#fff; border-radius:20px; box-shadow:0 6px 18px rgba(0,0,0,.06); padding:10px; display:flex; flex-direction:column; }
+.mergeTile__thumb{ height:160px; background:#eef1ff; border-radius:14px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.thumbStub{ font-weight:700; opacity:.35; }
+.mergeTile__meta{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; }
+.mergeTile .name{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; }
+.iconBtn{ border:none; background:transparent; cursor:pointer; font-size:16px; line-height:1; }
+.iconBtn.danger{ color:#c62828; }
+.stickyCTA{ position:sticky; bottom:12px; display:flex; justify-content:flex-end; margin-top:20px; }
+.ctaMerge{ background:var(--red); color:#fff; border:none; padding:14px 22px; border-radius:12px; font-size:16px; }
+.ctaMerge[disabled]{ opacity:.6; cursor:not-allowed; }
