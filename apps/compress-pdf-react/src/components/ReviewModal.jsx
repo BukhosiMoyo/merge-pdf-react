@@ -1,116 +1,136 @@
-import { useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+// apps/compress-pdf-react/src/components/ReviewModal.jsx
+import React, { useState } from "react";
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 export default function ReviewModal({ open, onClose, onSubmit }) {
-  const [stars, setStars] = useState(0);
-
-  const face = useMemo(() => {
-    if (stars <= 1) return "😖";
-    if (stars === 2) return "🙁";
-    if (stars === 3) return "😐";
-    if (stars === 4) return "🙂";
-    if (stars >= 5) return "😄";
-    return "⭐";
-  }, [stars]);
+  const [stars, setStars] = useState(5);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
 
   if (!open) return null;
 
-  const Star = ({ i }) => (
-    <button
-      onClick={() => setStars(i)}
-      aria-label={`Rate ${i} star${i > 1 ? "s" : ""}`}
-      style={{
-        fontSize: 34,           // make stars big
-        lineHeight: "34px",
-        cursor: "pointer",
-        background: "none",
-        border: "none",
-        padding: "0 8px",
-        color: i <= stars ? "#fbbf24" : "#9ca3af", // gold/gray
-        transition: "transform .1s ease",
-      }}
-      onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.9)")}
-      onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
-    >
-      {"\u2605" /* ★ */}
-    </button>
-  );
+  async function submitReview() {
+    try {
+      setBusy(true);
+      setErr("");
+      // 🔗 POST to your API
+      const res = await fetch(`${API_BASE}/v1/reviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating: stars }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error?.message || "Failed to submit review");
+      }
+      onSubmit?.(stars); // keep your existing callback
+      onClose?.();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
-  return createPortal(
+  const starStyle = (i) => ({
+    cursor: "pointer",
+    fontSize: 28,
+    color: i <= stars ? "#fbbf24" : "#475569",
+    transition: "color .15s",
+  });
+
+  return (
     <div
       onClick={onClose}
-      role="dialog"
-      aria-modal="true"
       style={{
         position: "fixed",
         inset: 0,
-        backdropFilter: "blur(4px)",
-        background: "rgba(0,0,0,0.45)",
-        zIndex: 10000,               // very high
+        background: "rgba(0,0,0,.5)",
+        backdropFilter: "blur(2px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        zIndex: 1000,
+        padding: 16,
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: 380,
-          maxWidth: "92vw",
-          borderRadius: 14,
-          background: "#111827",
-          color: "#fff",
-          boxShadow: "0 20px 50px rgba(0,0,0,.45)",
-          padding: 22,
+          width: "min(520px, 100%)",
+          background: "#0f172a",
+          border: "1px solid #1f2937",
+          borderRadius: 16,
+          padding: 20,
+          color: "#e2e8f0",
+          textAlign: "center",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Rate your experience</h3>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{ background: "transparent", border: "none", color: "#9ca3af", fontSize: 22, cursor: "pointer" }}
-          >
-            ×
-          </button>
+        <h3 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800 }}>
+          How was your experience?
+        </h3>
+        <div style={{ fontSize: 14, color: "#94a3b8", marginBottom: 14 }}>
+          Rate CompressPDF.co.za
         </div>
 
-        <p style={{ margin: "0 0 12px", color: "#d1d5db", fontSize: 14 }}>
-          How was PDF compression?
-        </p>
-
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0 8px" }}>
+        {/* Stars */}
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 14 }}>
           {[1, 2, 3, 4, 5].map((i) => (
-            <Star key={i} i={i} />
+            <span
+              key={i}
+              role="button"
+              aria-label={`${i} star`}
+              onClick={() => setStars(i)}
+              onMouseEnter={() => setStars(i)}
+              style={starStyle(i)}
+            >
+              ★
+            </span>
           ))}
         </div>
 
-        <div style={{ textAlign: "center", fontSize: 56, lineHeight: "1", margin: "4px 0 14px" }}>
-          {face /* BIG emoji */}
+        {/* Emoji */}
+        <div style={{ fontSize: 28, marginBottom: 16 }}>
+          {stars <= 2 ? "😕" : stars === 3 ? "🙂" : stars === 4 ? "😄" : "🤩"}
         </div>
 
-        <button
-          onClick={() => onSubmit?.(stars || 5)}
-          disabled={stars === 0}
-          style={{
-            width: "100%",
-            borderRadius: 10,
-            padding: "11px 14px",
-            fontWeight: 700,
-            cursor: stars ? "pointer" : "not-allowed",
-            background: stars ? "#22c55e" : "#374151",
-            color: "#0b1220",
-            border: "none",
-          }}
-        >
-          Submit
-        </button>
+        {err && <div style={{ color: "#fca5a5", marginBottom: 10 }}>{err}</div>}
 
-        <p style={{ marginTop: 10, fontSize: 12, color: "#9ca3af", textAlign: "center" }}>
-          You can close by clicking outside too.
-        </p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+          <button
+            onClick={onClose}
+            disabled={busy}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 10,
+              border: "1px solid #334155",
+              background: "transparent",
+              color: "#e2e8f0",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Close
+          </button>
+          <button
+            onClick={submitReview}
+            disabled={busy}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 10,
+              border: "none",
+              background: "#2563eb",
+              color: "#fff",
+              fontWeight: 800,
+              cursor: "pointer",
+              minWidth: 120,
+            }}
+          >
+            {busy ? "Submitting…" : "Submit"}
+          </button>
+        </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
