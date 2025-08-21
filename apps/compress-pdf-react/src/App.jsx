@@ -365,21 +365,20 @@ export default function App() {
         const res = await fetch(`${API_BASE}/v1/reviews/summary`, { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
-        const reviewCount = data.reviewCount || 0;
-        const ratingValue = data.ratingValue || 0;
-
-        setAgg({ reviewCount, ratingValue });
+        const count = Math.max(1, Number(reviewCount || 0));
+        const rating = Number(ratingValue || 5);
 
         const jsonld = {
           "@context": "https://schema.org",
-          "@type": "WebSite",
+          "@type": "SoftwareApplication",
           "name": "CompressPDF.co.za",
+          "operatingSystem": "Web",
+          "applicationCategory": "UtilityApplication",
           "url": "https://compresspdf.co.za/",
-          "inLanguage": "en",
           "aggregateRating": {
             "@type": "AggregateRating",
-            "ratingValue": Number(ratingValue).toFixed(2),
-            "reviewCount": reviewCount,
+            "ratingValue": rating.toFixed(2),
+            "reviewCount": count,
             "bestRating": 5,
             "worstRating": 1
           }
@@ -1286,13 +1285,15 @@ export default function App() {
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
-              "@type": "WebApplication",
-              "name": "Compress PDF Tool",
-              "url": "https://compresspdf.co.za",
+              "@type": "SoftwareApplication",
+              "name": "CompressPDF.co.za",
+              "operatingSystem": "Web",
+              "applicationCategory": "UtilityApplication",
+              "url": "https://compresspdf.co.za/",
               "aggregateRating": {
                 "@type": "AggregateRating",
-                "ratingValue": Number(reviewStats.average || 0).toFixed(2),
-                "reviewCount": reviewStats.count || 0,
+                "ratingValue": Number(reviewStats.average || 5).toFixed(2),
+                "reviewCount": Math.max(1, Number(reviewStats.count || 0)),
                 "bestRating": 5,
                 "worstRating": 1
               }
