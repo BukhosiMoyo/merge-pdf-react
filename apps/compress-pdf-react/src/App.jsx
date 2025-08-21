@@ -356,48 +356,6 @@ function Header({ locale, changeLocale }) {
 export default function App() {
 
   // use the named hooks you already import at the top
-  const [agg, setAgg] = useState({ reviewCount: 0, ratingValue: 0 });
-
-  // fetch reviews summary and inject/update JSON‑LD
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/v1/reviews/summary`, { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        const count = Math.max(1, Number(reviewCount || 0));
-        const rating = Number(ratingValue || 5);
-
-        const jsonld = {
-          "@context": "https://schema.org",
-          "@type": "SoftwareApplication",
-          "name": "CompressPDF.co.za",
-          "operatingSystem": "Web",
-          "applicationCategory": "UtilityApplication",
-          "url": "https://compresspdf.co.za/",
-          "aggregateRating": {
-            "@type": "AggregateRating",
-            "ratingValue": rating.toFixed(2),
-            "reviewCount": count,
-            "bestRating": 5,
-            "worstRating": 1
-          }
-        };
-
-        let tag = document.getElementById("ld-aggregate");
-        if (!tag) {
-          tag = document.createElement("script");
-          tag.type = "application/ld+json";
-          tag.id = "ld-aggregate";
-          document.head.appendChild(tag);
-        }
-        tag.textContent = JSON.stringify(jsonld);
-      } catch (e) {
-        console.warn("aggregate schema injection failed:", e);
-      }
-    })();
-  }, []);
-
 
   /* 1) Router params */
   const { locale: routeLocale } = useParams();

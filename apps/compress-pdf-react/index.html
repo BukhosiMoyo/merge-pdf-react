@@ -111,7 +111,28 @@
     }
     </script>
 
-    <script>
+    
+
+
+    <script type="application/ld+json" id="ld-aggregate">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "CompressPDF.co.za",
+        "url": "https://compresspdf.co.za/",
+        "applicationCategory": "UtilityApplication",
+        "operatingSystem": "Web",
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": 5,
+          "reviewCount": 1,
+          "bestRating": 5,
+          "worstRating": 1
+        }
+      }
+      </script>
+
+      <script>
       (function () {
         const TAG_ID = 'ld-aggregate';
         const API = 'https://api.compresspdf.co.za/v1/reviews/summary';
@@ -141,25 +162,6 @@
         } catch (e) { /* no-op */ }
       })();
     </script>
-
-
-    <script type="application/ld+json" id="ld-aggregate">
-      {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "CompressPDF.co.za",
-        "url": "https://compresspdf.co.za/",
-        "applicationCategory": "UtilityApplication",
-        "operatingSystem": "Web",
-        "aggregateRating": {
-          "@type": "AggregateRating",
-          "ratingValue": 5,
-          "reviewCount": 1,
-          "bestRating": 5,
-          "worstRating": 1
-        }
-      }
-      </script>
   </head>
 
   <body>
