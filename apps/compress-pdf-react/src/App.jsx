@@ -1237,28 +1237,6 @@ export default function App() {
           Powered By <a href="https://symaxx.com" rel="follow">Symaxx Digital.</a> © {new Date().getFullYear()} CompressPDF
         </div>
       </div>
-      {reviewStats && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "SoftwareApplication",
-              "name": "CompressPDF.co.za",
-              "operatingSystem": "Web",
-              "applicationCategory": "UtilityApplication",
-              "url": "https://compresspdf.co.za/",
-              "aggregateRating": {
-                "@type": "AggregateRating",
-                "ratingValue": Number(reviewStats.average || 5).toFixed(2),
-                "reviewCount": Math.max(1, Number(reviewStats.count || 0)),
-                "bestRating": 5,
-                "worstRating": 1
-              }
-            })
-          }}
-        />
-      )}
     </div>
   );
 }
