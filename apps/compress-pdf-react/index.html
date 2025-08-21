@@ -111,6 +111,38 @@
     }
     </script>
 
+    <script>
+      (function () {
+        const TAG_ID = 'ld-aggregate';
+        const API = 'https://api.compresspdf.co.za/v1/reviews/summary';
+        try {
+          fetch(API, { credentials: 'omit', cache: 'no-store' })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+              if (!d) return;
+              const tag = document.getElementById(TAG_ID);
+              if (!tag) return;
+              const data = JSON.parse(tag.textContent || '{}');
+              const rc = Math.max(1, Number(d.reviewCount || 0));
+              const rv = Math.min(5, Math.max(1, Number(d.ratingValue || 0))).toFixed(2);
+              data['@context'] = 'https://schema.org';
+              data['@type'] = data['@type'] || 'SoftwareApplication';
+              data.name = data.name || 'CompressPDF.co.za';
+              data.url = data.url || 'https://compresspdf.co.za/';
+              data.aggregateRating = {
+                '@type': 'AggregateRating',
+                ratingValue: Number(rv),
+                reviewCount: rc,
+                bestRating: 5,
+                worstRating: 1
+              };
+              tag.textContent = JSON.stringify(data);
+            });
+        } catch (e) { /* no-op */ }
+      })();
+    </script>
+
+
     <script type="application/ld+json" id="ld-aggregate">
       {
         "@context": "https://schema.org",
