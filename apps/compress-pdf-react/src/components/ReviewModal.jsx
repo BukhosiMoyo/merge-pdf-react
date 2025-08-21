@@ -1,135 +1,194 @@
-import React from "react";
+import { useEffect, useState } from "react";
 
-const API_BASE = import.meta.env?.VITE_API_BASE || "https://api.compresspdf.co.za";
-
+/**
+ * ReviewModal — responsive, overflow-safe
+ *
+ * Props:
+ *  - open: boolean
+ *  - onClose: fn()
+ *  - onSubmit: fn(starsNumber)
+ */
 export default function ReviewModal({ open, onClose, onSubmit }) {
-  const [stars, setStars] = React.useState(0);     // keep neutral default
-  const [hover, setHover] = React.useState(0);
-  const [busy, setBusy] = React.useState(false);
-  const [err, setErr] = React.useState("");
+  const [rating, setRating] = useState(0);
+  const [hover, setHover] = useState(null);
+  const active = hover ?? rating;
+
+  useEffect(() => {
+    if (!open) return;
+    const onEsc = (e) => e.key === "Escape" && onClose?.();
+    document.addEventListener("keydown", onEsc);
+    return () => document.removeEventListener("keydown", onEsc);
+  }, [open, onClose]);
 
   if (!open) return null;
 
-  async function handleSubmit() {
-    if (stars < 1 || stars > 5) {
-      setErr("Please choose a rating (1–5 stars).");
-      return;
-    }
-    setBusy(true);
-    setErr("");
-    try {
-      const res = await fetch(`${API_BASE}/v1/reviews`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating: Number(stars) }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json(); // { ok:true, reviewCount, ratingValue }
-      // tell parent it worked so it can refresh anything it wants
-      onSubmit?.(Number(stars), data);
-      onClose?.();
-    } catch (e) {
-      setErr("Could not submit your rating. Please try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // simple inline styles to match the rest of your app
   const overlay = {
-    position: "fixed", inset: 0, background: "rgba(0,0,0,.6)",
-    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999,
-    backdropFilter: "blur(2px)",
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,.55)",
+    backdropFilter: "blur(4px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    zIndex: 9999,
   };
-  const modal = {
-    width: "min(420px, 92vw)",
+
+  const sheet = {
+    width: "100%",
+    maxWidth: 440,             // slightly wider for bigger title/button
     background: "#0f172a",
     border: "1px solid #1f2937",
     borderRadius: 16,
-    padding: 18,
-    color: "#e2e8f0",
-    boxShadow: "0 18px 40px rgba(0,0,0,.45)",
-  };
-  const starRow = { display: "flex", gap: 6, justifyContent: "center", margin: "12px 0 6px" };
-  const btn = {
-    padding: "10px 16px", borderRadius: 12, fontWeight: 800, cursor: "pointer", border: "none",
+    boxShadow: "0 16px 40px rgba(0,0,0,.35)",
+    overflow: "hidden",
   };
 
-  const current = hover || stars;
+  const header = {
+    padding: "16px 18px",
+    borderBottom: "1px solid #1f2937",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  };
+
+  const title = {
+    color: "#e2e8f0",
+    fontWeight: 900,
+    // noticeably bigger on all screens but still responsive
+    fontSize: "clamp(18px, 3.8vw, 24px)",
+    lineHeight: 1.2,
+    margin: 0,
+  };
+
+  const closeBtn = {
+    border: "none",
+    background: "transparent",
+    // red close as requested
+    color: "#ef4444",
+    fontSize: 22,
+    cursor: "pointer",
+    lineHeight: 1,
+  };
+
+  const body = { padding: 18 };
+
+  // ⭐ container is wrap-safe and cannot overflow its parent
+  const starsRow = {
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+    maxWidth: "100%",
+    overflow: "hidden",
+    marginTop: 12,
+    marginBottom: 8,
+  };
+
+  // Each star scales with viewport but stays within bounds
+  const starBtn = (on) => ({
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    lineHeight: 1,
+    padding: 8,
+    fontSize: "clamp(26px, 8vw, 44px)",
+    outline: "none",
+    color: on ? "#f59e0b" : "#475569",
+    transition: "transform .08s ease, color .15s ease",
+  });
+
+  // Bigger, primary submit button
+  const footer = {
+    display: "flex",
+    justifyContent: "center",
+    marginTop: 14,
+  };
+  const primary = {
+    padding: "14px 22px",
+    borderRadius: 14,
+    border: "none",
+    background: "#16a34a",
+    color: "#fff",
+    fontWeight: 900,
+    fontSize: "clamp(15px, 3.6vw, 18px)",
+    cursor: rating > 0 ? "pointer" : "not-allowed",
+    opacity: rating > 0 ? 1 : 0.6,
+    minWidth: 180,
+  };
+
+  // Emoji scale & mapping (default is disappointed)
+  const moodWrap = {
+    textAlign: "center",
+    marginTop: 6,
+    fontSize: "clamp(30px, 10vw, 54px)",
+  };
+  const mood = active >= 5 ? "😄"
+            : active === 4 ? "🙂"
+            : active === 3 ? "😐"
+            : active === 2 ? "☹️"
+            : active === 1 ? "😣"
+            : "😞"; // default when no stars yet
+
+  const Star = ({ filled }) => (
+    <svg
+      viewBox="0 0 24 24"
+      width="1em"
+      height="1em"
+      fill="currentColor"
+      role="img"
+      aria-hidden="true"
+      style={{ transform: filled ? "translateY(-1px)" : "none" }}
+    >
+      <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+    </svg>
+  );
 
   return (
     <div style={overlay} onClick={onClose}>
-      <div style={modal} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 900 }}>Rate your experience</h3>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{ ...btn, background: "transparent", color: "#94a3b8", padding: 6 }}
-          >
-            ×
-          </button>
+      <div style={sheet} onClick={(e) => e.stopPropagation()}>
+        <div style={header}>
+          <h3 style={title}>Rate your experience</h3>
+          <button style={closeBtn} onClick={onClose} aria-label="Close">✕</button>
         </div>
 
-        {/* Stars */}
-        <div style={starRow}>
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button
-              key={n}
-              onMouseEnter={() => setHover(n)}
-              onMouseLeave={() => setHover(0)}
-              onClick={() => setStars(n)}
-              aria-label={`${n} star${n > 1 ? "s" : ""}`}
-              style={{
-                border: "none",
-                background: "transparent",
-                fontSize: 32,
-                lineHeight: 1,
-                cursor: "pointer",
-              }}
-            >
-              <span style={{ color: n <= current ? "#fbbf24" : "#334155" }}>★</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Emoji hint */}
-        <div style={{ textAlign: "center", fontSize: 28, marginBottom: 8 }}>
-          {current >= 5 ? "😄" : current === 4 ? "🙂" : current === 3 ? "😐" : current === 2 ? "🙁" : current === 1 ? "😣" : "⭐"}
-        </div>
-
-        {/* Error */}
-        {err && (
-          <div style={{ color: "#fca5a5", textAlign: "center", marginBottom: 8, fontSize: 14 }}>
-            {err}
+        <div style={body}>
+          <div style={{ color: "#cbd5e1", textAlign: "center", fontWeight: 700 }}>
+            How many stars would you give our PDF compressor?
           </div>
-        )}
 
-        {/* Actions */}
-        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-          <button
-            onClick={onClose}
-            style={{ ...btn, background: "#374151", color: "#fff" }}
-            disabled={busy}
-          >
-            Close
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={busy}
-            style={{
-              ...btn,
-              background: busy ? "#334155" : "#2563eb",
-              color: "#fff",
-              boxShadow: busy ? "none" : "0 10px 24px rgba(30,64,175,.45)",
-            }}
-          >
-            {busy ? "Submitting…" : "Submit"}
-          </button>
-        </div>
+          <div style={starsRow}>
+            {[1, 2, 3, 4, 5].map((n) => {
+              const on = n <= (hover ?? rating);
+              return (
+                <button
+                  key={n}
+                  style={starBtn(on)}
+                  onMouseEnter={() => setHover(n)}
+                  onMouseLeave={() => setHover(null)}
+                  onFocus={() => setHover(n)}
+                  onBlur={() => setHover(null)}
+                  onClick={() => setRating(n)}
+                  aria-label={`${n} star${n > 1 ? "s" : ""}`}
+                >
+                  <Star filled={on} />
+                </button>
+              );
+            })}
+          </div>
 
-        <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 12, marginTop: 8 }}>
-          Thanks for helping us improve!
+          <div style={moodWrap} aria-hidden="true">{mood}</div>
+
+          <div style={footer}>
+            <button
+              style={primary}
+              disabled={rating < 1}
+              onClick={() => rating > 0 && onSubmit?.(rating)}
+            >
+              Submit
+            </button>
+          </div>
         </div>
       </div>
     </div>
