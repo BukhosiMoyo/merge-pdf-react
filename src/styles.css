@@ -1,26 +1,978 @@
-:root{ --red:#e53935; }
-body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f6f7fb; color:#111; }
-.mergeWrap{ max-width:1200px; margin:0 auto; padding:24px; }
-.titleClamp{ font-size: clamp(28px, 5vw, 44px); line-height:1.1; }
-.subtleClamp{ opacity:.75; }
-.zeroState{ text-align:center; padding:72px 12px; }
-.ctaHuge{ font-size:22px; padding:18px 36px; border:none; border-radius:999px; background:var(--red); color:#fff; cursor:pointer; box-shadow:0 8px 16px rgba(229,57,53,.25); }
-.ctaHuge:hover{ transform:translateY(-1px); }
-.dropHint{ opacity:.6; margin-top:10px; }
-.builderTop{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; gap:12px; }
-.btnGhost{ background:#fff; border:1px solid #e8e8e8; border-radius:999px; padding:8px 14px; cursor:pointer; }
-.sortBtns button{ margin-left:8px; }
-.tilesGrid{ display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap:16px; }
-@media (max-width:1440px){ .tilesGrid{ grid-template-columns: repeat(5,1fr); } }
-@media (max-width:1024px){ .tilesGrid{ grid-template-columns: repeat(3,1fr); } }
-@media (max-width:768px){ .tilesGrid{ grid-template-columns: repeat(2,1fr); } }
-.mergeTile{ background:#fff; border-radius:20px; box-shadow:0 6px 18px rgba(0,0,0,.06); padding:10px; display:flex; flex-direction:column; }
-.mergeTile__thumb{ height:160px; background:#eef1ff; border-radius:14px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-.thumbStub{ font-weight:700; opacity:.35; }
-.mergeTile__meta{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; }
-.mergeTile .name{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; }
-.iconBtn{ border:none; background:transparent; cursor:pointer; font-size:16px; line-height:1; }
-.iconBtn.danger{ color:#c62828; }
-.stickyCTA{ position:sticky; bottom:12px; display:flex; justify-content:flex-end; margin-top:20px; }
-.ctaMerge{ background:var(--red); color:#fff; border:none; padding:14px 22px; border-radius:12px; font-size:16px; }
-.ctaMerge[disabled]{ opacity:.6; cursor:not-allowed; }
+/* === Font (rounded look) === */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap');
+
+:root{
+  --brand:#2563eb; --brand-600:#1d4ed8; --brand-rgb:37,99,235;
+  --accent:#10b981; --accent-rgb:16,185,129;
+  --danger:#ef4444;
+
+  --bg:#f6f7fb; --text:#111; --muted:#6b7280;
+  --card:#fff; --border:#e6e8ee; --shadow:0 6px 18px rgba(0,0,0,.06);
+  --tile-thumb:#eaf0ff;
+
+  /* fixed shell metrics so sidebar always touches footer */
+  --header-h: 56px;
+  --footer-h: 56px;
+
+  /* font handle */
+  --app-font: "Montserrat", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+html[data-theme="dark"]{
+  --bg:#0b1220; --text:#e5e7eb; --muted:#9ca3af;
+  --card:#0f172a; --border:#1f2937; --shadow:0 8px 22px rgba(0,0,0,.45);
+  --tile-thumb:#0c1428;
+}
+
+*{box-sizing:border-box}
+html,body,#root{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:var(--app-font);
+}
+
+/* Global link + button resets (fix purple/underline + native styles) */
+a{color:inherit;text-decoration:none}
+a:hover{text-decoration:none}
+a:visited{color:inherit}
+button, input, select{
+  font-family:var(--app-font);
+  -webkit-appearance:none; appearance:none; outline:none;
+}
+
+/* ===== Animations ===== */
+@keyframes borderPulseGreen{
+  0%,100%{box-shadow:0 0 0 0 rgba(var(--accent-rgb),.45)}
+  50%{box-shadow:0 0 0 40px rgba(var(--accent-rgb),0)}
+}
+.pulseBorderGreen{animation:borderPulseGreen 1.8s ease-in-out infinite}
+
+@keyframes shuffle{0%{transform:translateY(0)}33%{transform:translateY(-6px)}66%{transform:translateY(6px)}100%{transform:translateY(0)}}
+.shuffleAnim .mergeTile{animation:shuffle .35s ease}
+
+@keyframes flyToBin{
+  0%{opacity:1;transform:translate(0,0) scale(1)}
+  70%{opacity:.9;transform:translate(-24vw, 32vh) scale(.95)}
+  100%{opacity:0;transform:translate(-40vw, 60vh) scale(.9)}
+}
+.flyOut{animation:flyToBin .35s ease forwards}
+
+@keyframes spinHint{from{transform:rotate(0)}to{transform:rotate(180deg)}}
+
+/* ===== Header ===== */
+.siteHeader{
+  position:sticky;top:0;z-index:60;
+  height:var(--header-h);
+  background:color-mix(in srgb,var(--bg) 85%,transparent);
+  backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--border);
+  box-shadow:0 2px 0 rgba(0,0,0,.02);
+}
+.headerInner{
+  height:100%;
+  max-width:100%;padding:10px 18px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:900;letter-spacing:.2px}
+.brandMark{
+  width:28px;height:28px;border-radius:8px;background:var(--brand);
+  display:grid;place-items:center;color:#fff;font-size:14px
+}
+.headerRight{display:flex;align-items:center;gap:8px}
+
+/* Language dropdown: rounded + caret inside */
+.langWrap{display:flex;align-items:center;gap:8px}
+.langSelect{
+  background:var(--card);
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:8px 34px 8px 12px;
+  border-radius:8px;
+  font-weight:700;
+  cursor:pointer;
+  appearance:none; -webkit-appearance:none; -moz-appearance:none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 10px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+.themeToggle{
+  display:flex;align-items:center;gap:8px;border-radius:8px;
+  background:var(--card);border:1px solid var(--border);color:var(--text);
+  padding:8px 14px;font-weight:700;cursor:pointer
+}
+
+/* ===== Shell: header + content + footer ===== */
+.pageWrap{
+  height:100%;
+  display:grid;
+  grid-template-rows: var(--header-h) 1fr var(--footer-h);
+}
+
+.pageMain{
+  /* this row must fill between header and footer */
+  height:100%;
+  min-height:0;           /* allow children to size/scroll correctly */
+  display:block;
+}
+
+/* Merge page area: grid with sticky sidebar that fills to footer */
+.appShell{
+  /* this grid lives inside the middle row and must also fill it */
+  height:100%;
+  display:grid;
+  grid-template-columns:1fr 360px;
+  gap:0;
+}
+@media (max-width:1024px){ .appShell{ grid-template-columns:1fr } }
+
+.canvasArea{
+  padding:18px;
+  overflow:auto;       /* vertical scrolling lives here */
+  overflow-x:hidden;   /* kill any accidental horizontal scroll bar */
+}
+
+.sidebarPane{
+  border-left:1px solid var(--border);
+  background:color-mix(in srgb,var(--bg) 96%,#fff 4%);
+  padding:18px;
+
+  /* Fill the full column height and stack content top→bottom */
+  display:flex;
+  flex-direction:column;
+  height:100%;
+  min-height:0;
+
+  /* keep it visually above canvas */
+  position:relative;
+  z-index:1;
+}
+.sidebarPane .sidebarCTA{ margin-top:auto }
+@media (max-width:1024px){
+  .sidebarPane{ border-left:none; border-top:1px solid var(--border) }
+}
+
+
+/* ===== Zero-state hero ===== */
+.zeroState{text-align:center;padding:10vh 12px 48px}
+.titleClamp{font-size:clamp(28px,5vw,44px);line-height:1.1;margin:0 0 10px}
+.subtleClamp{opacity:.8;margin:0 0 22px}
+.dropHint{margin-top:14px}
+
+/* ===== Controls row (chips) ===== */
+.controlsRow{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px
+}
+.btnGhost{
+  background:var(--card);color:var(--text);
+  border:2px solid color-mix(in srgb,var(--brand) 45%, var(--border) 55%);
+  padding:10px 16px;border-radius:6px;font-weight:800;cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;
+}
+.btnIcon{display:grid;place-items:center;width:18px;height:18px}
+.btnGhost:hover{transform:translateY(-1px)}
+/* A→Z & Original: keep the stronger border */
+.btnGhost--outlined2{border-width:2px}
+.btnGhost--outlined2:hover{
+  border-color: color-mix(in srgb, var(--brand) 70%, var(--border) 30%);
+}
+
+/* Compact mode → icons only */
+.controlsRow--compact .btnLabel{display:none}
+
+/* “Add files” chip: pulsing 2px outline (“beep”) */
+.btnAdd{position:relative}
+.btnAdd::after{
+  content:""; position:absolute; inset:-4px; border-radius:8px;
+  border:2px solid color-mix(in srgb, var(--brand) 55%, transparent);
+  animation:addPulse 1.8s ease-in-out infinite; pointer-events:none;
+}
+@keyframes addPulse{
+  0%{box-shadow:0 0 0 0 rgba(var(--brand-rgb),.35)}
+  70%{box-shadow:0 0 0 14px rgba(var(--brand-rgb),0)}
+  100%{box-shadow:0 0 0 0 rgba(var(--brand-rgb),0)}
+}
+
+/* ===== Primary buttons ===== */
+.ctaHuge,.ctaMerge{
+  -webkit-appearance:none; appearance:none;
+  border-radius:14px;border:1px solid transparent;cursor:pointer;
+  transition:transform .15s,box-shadow .15s,background-color .15s,color .15s;
+  background:var(--brand);color:#fff;
+  font-weight:900;
+  box-shadow:0 10px 20px color-mix(in srgb,var(--brand) 26%, transparent);
+}
+.ctaHuge{font-size:22px;padding:22px 40px;display:inline-flex;align-items:center;gap:10px}
+.ctaHuge:hover{transform:translateY(-1px);background:var(--brand-600)}
+.ctaMerge{width:100%;padding:18px 26px;font-size:20px}
+.ctaMerge[disabled]{opacity:.6;cursor:not-allowed;box-shadow:none}
+
+/* ===== Tiles grid ===== */
+.tilesGrid{
+  display:flex;flex-wrap:wrap;gap:16px;justify-content:center;align-items:flex-start
+}
+.tilesGrid.dragging .mergeTile{
+  outline:2px dashed color-mix(in srgb,var(--brand) 38%,transparent);outline-offset:-10px
+}
+
+/* Tile */
+.mergeTile{
+  background:var(--card);border-radius:20px;box-shadow:var(--shadow);
+  padding:12px;display:flex;flex-direction:column;position:relative;width:clamp(220px,24vw,260px);
+  border:1px solid transparent;
+}
+html[data-theme="dark"] .mergeTile{
+  border-color:color-mix(in srgb,#ffffff 18%,var(--border) 82%);
+}
+.mergeTile__thumb{
+  height:220px;background:var(--tile-thumb);border-radius:14px;
+  display:flex;align-items:center;justify-content:center;overflow:visible;position:relative
+}
+.mergeTile:hover{
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--brand) 45%,transparent),var(--shadow)
+}
+.mergeTile__thumb img{width:100%;height:100%;object-fit:contain;display:block}
+
+.thumbStub{font-weight:800;opacity:.35;letter-spacing:.08em}
+.fileBadge{
+  position:absolute;top:8px;left:8px;display:flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,.9);color:#1f2937;border:1px solid var(--border);
+  padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;z-index:2
+}
+html[data-theme="dark"] .fileBadge{background:rgba(3,7,18,.75);color:#e5e7eb}
+
+/* actions */
+.tileActions{position:absolute;top:8px;right:8px;display:flex;gap:8px;opacity:0;transition:opacity .15s;z-index:5}
+.mergeTile:hover .tileActions{opacity:1}
+
+/* icon buttons on tiles */
+.iconBtn{position:relative;border:none;background:transparent;cursor:pointer;font-size:20px;line-height:1;color:var(--text)}
+.iconBtn.square{
+  width:38px;height:38px;border-radius:10px;display:grid;place-items:center;
+  background:rgba(255,255,255,.95);border:1px solid var(--border);color:var(--text);overflow:hidden
+}
+html[data-theme="dark"] .iconBtn.square{background:rgba(3,7,18,.82)}
+.iconBtn.square:hover{transform:translateY(-1px)}
+.iconBtn.danger{color:#b91c1c}
+.iconBtn.danger:hover{background:#fee2e2;color:#7f1d1d}
+html[data-theme="dark"] .iconBtn.danger:hover{background:#2a0f13;color:#fca5a5}
+
+/* filename: single line ellipsis */
+.mergeTile__meta{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px
+}
+.mergeTile .name{
+  flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px;font-weight:600
+}
+
+/* ===== Tooltips ===== */
+.tooltipHost{position:relative;z-index:10}
+.tooltip{
+  position:absolute;left:50%;transform:translateX(-50%);
+  background:var(--brand);color:#fff;font-size:13px;font-weight:700;
+  padding:8px 12px;border-radius:10px;opacity:0;pointer-events:none;
+  box-shadow:0 6px 18px rgba(0,0,0,.25);white-space:nowrap;z-index:9999
+}
+.tooltipHost:hover .tooltip{opacity:1}
+.tooltip.above{bottom:calc(100% + 10px)}
+.tooltip.above::after{
+  content:"";position:absolute;left:50%;transform:translateX(-50%);
+  top:100%;border:7px solid transparent;border-top-color:var(--brand)
+}
+.tooltip.bottom{top:calc(100% + 10px)}
+.tooltip.bottom::after{
+  content:"";position:absolute;left:50%;transform:translateX(-50%);
+  bottom:100%;border:7px solid transparent;border-bottom-color:var(--brand)
+}
+.thumbTooltip{position:absolute;left:50%;transform:translateX(-50%);top:auto;bottom:calc(100% + 10px);z-index:10000;pointer-events:none}
+.mergeTile__thumb:hover .thumbTooltip .tooltip{opacity:1}
+.mergeTile__thumb:has(.tileActions:hover) .thumbTooltip .tooltip{opacity:0}
+
+/* ===== Bin overlay + undo (only shows when there’s trash) ===== */
+.binOverlay{position:fixed;left:18px;bottom:18px;z-index:70;display:flex;align-items:center;gap:12px}
+.bin{
+  width:56px;height:56px;border-radius:16px;background:var(--card);
+  border:1px solid var(--border);box-shadow:var(--shadow);
+  display:grid;place-items:center;position:relative;transition:background .15s,border-color .15s,transform .15s
+}
+.bin.hot{
+  background:color-mix(in srgb,var(--danger) 15%,var(--card));
+  border-color:color-mix(in srgb,var(--danger) 35%,var(--border));
+  transform:translateY(-2px)
+}
+.bin svg{width:28px;height:28px;fill:var(--danger)}
+.binBadge{
+  position:absolute;top:-8px;right:-8px;background:var(--danger);color:#fff;
+  font-weight:800;font-size:12px;border-radius:999px;padding:4px 7px;min-width:24px;text-align:center;
+  box-shadow:0 3px 10px rgba(0,0,0,.2)
+}
+.undoToast{
+  background:var(--card);color:var(--text);border:1px solid var(--border);box-shadow:var(--shadow);
+  padding:10px 12px;border-radius:12px;display:flex;align-items:center;gap:10px
+}
+.undoToast button{
+  background:var(--brand);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer
+}
+
+/* ===== Drop highlight on canvas ===== */
+.dropzone{transition:background .15s,outline-color .15s}
+.dropzone.dropActive{
+  outline:2px dashed color-mix(in srgb,var(--brand) 45%,transparent);
+  outline-offset:-6px;
+  background:color-mix(in srgb,var(--brand) 6%,var(--bg) 94%);
+}
+
+/* ===== Loading overlay during merge ===== */
+.loadingOverlay{
+  position:fixed;inset:0;z-index:90;display:grid;place-items:center;
+  background:rgba(0,0,0,.18);backdrop-filter:blur(2px)
+}
+.loadingCard{
+  background:var(--card);border:1px solid var(--border);border-radius:16px;
+  padding:18px 22px;box-shadow:var(--shadow);text-align:center;min-width:260px
+}
+.ring{position:relative;width:84px;height:84px;margin:0 auto 10px}
+.ring::before{content:"";position:absolute;inset:0;border-radius:999px;border:10px solid color-mix(in srgb,var(--brand) 15%,transparent)}
+.ringInner{
+  --pct:0%;
+  position:absolute;inset:0;border-radius:999px;
+  border:10px solid transparent;border-top-color:var(--brand);border-right-color:var(--brand);
+  clip-path:polygon(50% 0,100% 0,100% 100%,0 100%,0 0,50% 0);
+  transform:rotate(calc((var(--pct) * 3.6)));
+  transition:transform .2s linear;
+}
+.ringText{position:absolute;inset:0;display:grid;place-items:center;font-weight:900}
+.mergeMsg{font-weight:900;font-size:clamp(18px,2.6vw,22px)}
+
+/* ===== Download page (centered single‑column variant kept) ===== */
+.downloadWrap.downloadWrap--single{
+  max-width:760px; margin:28px auto; padding:0 18px;
+  display:block;
+}
+.downloadCard{
+  background:var(--card); border:1px solid var(--border); border-radius:18px;
+  box-shadow:var(--shadow); padding:22px; text-align:center;
+}
+.primaryDownloadBtn{
+  display:inline-flex; align-items:center; justify-content:center; gap:10px;
+  width:100%; max-width:340px;
+  margin:10px auto 0; padding:16px 20px;
+  font-weight:900; font-size:18px; color:#fff; background:var(--brand);
+  border-radius:14px; border:1px solid transparent; cursor:pointer;
+  box-shadow:0 12px 22px color-mix(in srgb, var(--brand) 28%, transparent);
+  transition:transform .15s, background .15s, box-shadow .15s;
+  text-decoration:none;   /* never underline */
+}
+.primaryDownloadBtn:hover{ transform:translateY(-1px); background:var(--brand-600); }
+
+/* all “button-ish” links should never underline */
+a.btn, .btnLink, .primaryBtn, .ghostBtn, .primaryDownloadBtn { text-decoration:none !important; }
+a.btn:hover, .btnLink:hover, .primaryBtn:hover, .ghostBtn:hover, .primaryDownloadBtn:hover { text-decoration:none !important; }
+
+/* ===== Footer ===== */
+.siteFooter{
+  height:var(--footer-h);
+  border-top:1px solid var(--border);
+  background:color-mix(in srgb, var(--bg) 92%, transparent);
+}
+.footerInner{
+  height:100%;
+  max-width:1100px; margin:0 auto; padding:0 18px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  color:var(--muted); font-weight:700;
+}
+.footerNav{ display:flex; gap:14px; flex-wrap:wrap; }
+.footerLink{ color:inherit; text-decoration:none; }
+.footerLink[aria-disabled="true"]{ opacity:.55; pointer-events:none; }
+
+/* === SIDEBAR FULL-HEIGHT FIX PACK === */
+
+/* 1) Give the whole app a definite height chain */
+html, body, #root { height: 100%; }
+
+/* 2) Page shell fills the viewport and allows the middle row to grow */
+.pageWrap{
+  min-height: 100%;            /* was 100svh in some places; this makes it inherit from #root */
+  display: flex;
+  flex-direction: column;
+}
+.pageMain{
+  flex: 1;                     /* fill between header and footer */
+  min-height: 0;               /* IMPORTANT: let children size/scroll */
+  display: flex;               /* so the grid can flex to full height */
+}
+
+/* 3) The grid itself must take the full available height */
+.appShell{
+  flex: 1;                     /* claim full height inside pageMain */
+  min-height: 0;               /* allow the scrollable child to work */
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 0;
+}
+@media (max-width:1024px){
+  .appShell{ grid-template-columns: 1fr; }
+}
+
+/* 4) Only the tiles area can scroll; no horizontal jiggle */
+.canvasArea{
+  padding: 18px;
+  overflow: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+/* 5) Sidebar stretches the full column and pins its CTA at the bottom */
+.sidebarPane{
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: color-mix(in srgb,var(--bg) 96%,#fff 4%);
+  padding: 18px;
+}
+.sidebarPane .sidebarCTA{ margin-top: auto; }
+
+@media (max-width:1024px){
+  .sidebarPane{ border-left:none; border-top:1px solid var(--border); }
+}
+
+/* ===== Download page v2 ===== */
+
+.downloadWrap.downloadWrap--single{
+  max-width: 880px;
+  margin: 32px auto;
+  padding: 0 18px;
+  display: grid;
+  place-items: center;
+}
+
+.dlCard{
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 26px 22px 24px;
+  text-align: center;
+  position: relative;
+}
+
+/* peeled tab look */
+.dlPeel{
+  --peel-bg: color-mix(in srgb, var(--brand) 14%, transparent);
+  position: absolute; left: 50%; transform: translateX(-50%);
+  top: -14px;
+  background: var(--peel-bg);
+  width: 56px; height: 28px; border-radius: 0 0 14px 14px;
+  display: grid; place-items: center; color: var(--brand);
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+  border-top: none;
+}
+.dlPeel__glyph svg{ width: 18px; height: 18px; }
+
+/* headings */
+.dlH1{ margin: 8px 0 6px; font-size: clamp(22px, 3.6vw, 28px); font-weight: 900; }
+.dlSub{ margin: 0 0 12px; color: var(--muted); font-weight: 600; }
+
+/* file row: badge | name | size */
+.dlFileRow{
+  display: inline-grid;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 16px;
+  max-width: 100%;
+}
+.dlBadge{
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(var(--brand-rgb), .12);
+  color: var(--brand);
+  border: 1px solid color-mix(in srgb, var(--brand) 35%, transparent);
+  font-size: 12px; font-weight: 900;
+}
+.dlName{
+  max-width: 46ch;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 800;
+}
+.dlDot{ color: var(--muted); font-weight: 700; }
+.dlSize{ color: var(--muted); font-weight: 700; }
+
+/* reuse your primary + ghost buttons (no underline ever) */
+.primaryDownloadBtn, .btnGhost, .btnLink, a.btn { text-decoration: none !important; }
+.primaryDownloadBtn{ margin-top: 6px; }            /* a bit tighter stack */
+.dlActionsRow{ margin-top: 14px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* on very small screens keep it airy */
+@media (max-width: 420px){
+  .dlName{ max-width: 30ch; }
+}
+
+/* keep peel attached to the card, not floating above */
+.dlCard{ position:relative; overflow:visible; }
+.dlPeel{
+  position:absolute; left:50%; transform:translateX(-50%);
+  top:-1px;  /* <- was -14px; now it kisses the border */
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  width:56px; height:28px; border-radius:0 0 14px 14px;
+  display:grid; place-items:center; color:var(--brand);
+  border:1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+  border-top:none;
+}
+
+/* ----- lightweight modal styles ----- */
+.modalOverlay{
+  position:fixed; inset:0; z-index:120;
+  display:grid; place-items:center;
+  background:rgba(0,0,0,.45); backdrop-filter:blur(2px);
+}
+.modalCard{
+  width:min(560px,92vw);
+  background:var(--card); color:var(--text);
+  border:1px solid var(--border); border-radius:14px;
+  box-shadow:var(--shadow); padding:14px;
+}
+.modalHead{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.modalHead h3{ margin:0; font-weight:900; }
+.iconBtn.small{ border:1px solid var(--border); background:var(--card); border-radius:8px; padding:6px; cursor:pointer; }
+.modalBody{ margin-top:8px; }
+.fieldRow{ display:flex; flex-direction:column; gap:6px; margin:10px 0; }
+.fieldRow label{ font-weight:800; color:var(--muted); }
+.fieldRow input{
+  padding:10px 12px; border-radius:8px;
+  background:var(--bg); border:1px solid var(--border);
+  color:var(--text); font-weight:700;
+}
+.hintRow{ color:var(--muted); font-weight:700; margin-top:4px; }
+.modalActions{ display:flex; justify-content:flex-end; gap:10px; margin-top:12px; }
+.primaryBtn{ background:var(--brand); color:#fff; border:1px solid transparent; border-radius:10px; padding:10px 14px; font-weight:900; }
+.primaryBtn[disabled]{ opacity:.6; cursor:not-allowed; }
+
+/* spacing refinements */
+.dlH1 { margin-bottom: 6px; }
+.dlSub { margin-bottom: 16px; }
+
+.primaryDownloadBtn { 
+  margin-bottom: 20px; 
+  display:inline-flex; 
+  justify-content:center; 
+  align-items:center; 
+  gap:8px; 
+}
+
+.dlFileRow { margin-bottom: 20px; }
+
+.dlActionsRow { 
+  display:flex; 
+  flex-wrap:wrap; 
+  gap:12px; 
+  justify-content:center;
+  margin-bottom: 24px; 
+}
+
+/* add breathing room under whole card */
+.dlCard { padding-bottom: 32px; }
+
+/* ===== Rating modal ===== */
+.ratingModal{
+  position:fixed; inset:0; z-index:140;
+  display:none; place-items:center;
+  background:rgba(0,0,0,.45); backdrop-filter:blur(2px);
+}
+.ratingModal.open{ display:grid; }
+
+
+.ratingTitleRow{ display:flex; justify-content:center; align-items:center; position:relative; }
+.ratingTitle{ margin:6px 0 0; font-size:clamp(18px, 3.5vw, 22px); font-weight:900; }
+.ratingX{
+  position:absolute; right:6px; top:6px;
+  border:1px solid var(--border); background:var(--card); color:var(--text);
+  border-radius:10px; padding:4px 8px; cursor:pointer;
+}
+.ratingSub{ margin:8px 0 12px; color:var(--muted); font-weight:600; }
+
+.starsRow{ display:flex; justify-content:center; gap:6px; margin:8px 0; }
+.starBtn{
+  width:42px; height:42px; border-radius:10px; border:1px solid var(--border);
+  background:var(--card); color:color-mix(in srgb, var(--brand) 25%, var(--text));
+  cursor:pointer; transition:transform .12s, color .12s, background .12s;
+}
+.starBtn:hover, .starBtn.on{
+  color:var(--brand);
+  background:color-mix(in srgb, var(--brand) 8%, var(--card));
+  transform:translateY(-1px);
+}
+
+.emojiRow{ height:28px; margin:6px 0 10px; }
+.emoji{ opacity:.0; transform:translateY(6px); display:inline-block; transition: all .15s; font-size:24px; }
+.emoji.show{ opacity:1; transform:translateY(0); }
+
+.ratingSubmit{ width:100%; margin-top:6px; }
+.ratingSkip{ width:100%; margin-top:8px; }
+
+/* ===== Download card (stacked) ===== */
+.dlCard{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:18px;
+  box-shadow:var(--shadow);
+  padding:22px 18px 20px;
+  max-width:760px;
+  margin:28px auto;
+  text-align:center;
+  position:relative;
+}
+
+/* small peel centered on top border */
+.dlPeel{
+  position:absolute; left:50%; transform:translateX(-50%);
+  top:-12px; width:40px; height:24px;
+  border:1px solid var(--border); border-bottom:none;
+  border-top-left-radius:10px; border-top-right-radius:10px;
+  background:var(--card); color:var(--brand);
+  display:grid; place-items:center;
+  box-shadow:0 -4px 10px rgba(0,0,0,.04);
+}
+
+.dlH1{ margin:6px 0 4px; font-weight:900; font-size:clamp(22px,3.2vw,28px); }
+.dlSub{ margin:0 0 12px; color:var(--muted); font-weight:600; }
+
+/* File row under the big button */
+.dlFileRow{
+  display:flex; flex-wrap:wrap; gap:10px; justify-content:center;
+  align-items:center; margin:10px 0 4px;
+}
+.dlBadge{
+  display:inline-flex; gap:6px; align-items:center;
+  background:rgba(var(--brand-rgb), .10);
+  color:var(--brand); border:1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+  padding:4px 8px; border-radius:999px; font-weight:800; font-size:12px;
+}
+.dlName{ font-weight:800; max-width:52ch; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dlDot{ opacity:.5 }
+.dlSize{ color:var(--muted); font-weight:700; }
+
+/* Actions row */
+.dlActionsRow{
+  margin-top:14px; display:flex; flex-wrap:wrap; gap:10px; justify-content:center;
+}
+
+/* ===== Email modal ===== */
+.modalOverlay{
+  position:fixed; inset:0; z-index:140;
+  display:grid; place-items:center;
+  background:rgba(0,0,0,.45); backdrop-filter:blur(2px);
+}
+.modalCard{
+  width:min(520px, 92vw);
+  background:var(--card); color:var(--text);
+  border:1px solid var(--border); border-radius:18px; box-shadow:var(--shadow);
+  padding:16px;
+}
+.modalHead{
+  display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;
+}
+.modalHead h3{ margin:0; font-size:18px; font-weight:900 }
+.iconBtn.small{
+  border:1px solid var(--border); background:var(--card); border-radius:10px; padding:4px 8px; cursor:pointer;
+}
+.modalBody{ display:grid; gap:10px }
+.fieldRow{ display:grid; gap:6px; text-align:left }
+.fieldRow label{ font-weight:800; font-size:13px; color:var(--muted) }
+.fieldRow input{
+  padding:10px 12px; border-radius:10px; border:1px solid var(--border);
+  background:var(--card); color:var(--text); outline:none;
+}
+.fieldRow input:focus{ box-shadow:0 0 0 2px color-mix(in srgb, var(--brand) 45%, transparent) }
+.hintRow{ color:var(--muted); font-weight:600; }
+.modalActions{ display:flex; justify-content:flex-end; gap:8px; margin-top:6px }
+
+/* Keep link-buttons un-underlined */
+a.btn, .btnGhost, .primaryBtn, .primaryDownloadBtn { text-decoration:none !important; }
+
+
+/* ===== Rating dialog (minimal, no "Maybe later") ===== */
+.rateOverlay{
+  position:fixed; inset:0; z-index:160;
+  display:grid; place-items:center;
+  background:rgba(0,0,0,.45); backdrop-filter:blur(2px);
+}
+.rateCard{
+  position:relative;
+  width:min(520px, 92vw);
+  background:var(--card);
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:16px;
+  box-shadow:var(--shadow);
+  padding:18px 16px 16px;
+  text-align:center;
+}
+.rateClose{
+  position:absolute; top:10px; right:10px;
+  display:grid; place-items:center;
+  height:30px; width:30px; border-radius:10px;
+  border:1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
+  background:color-mix(in srgb, var(--danger) 8%, var(--card));
+  color:#ef4444; /* red X */
+  cursor:pointer;
+}
+.rateClose:hover{ background:color-mix(in srgb, var(--danger) 14%, var(--card)); }
+
+.rateTitle{ margin:6px 0 4px; font-weight:900; font-size:clamp(18px, 2.6vw, 22px); }
+.rateSub{ margin:0 0 12px; color:var(--muted); font-weight:600; }
+
+.rateStars{ display:flex; gap:10px; justify-content:center; margin:8px 0 8px; }
+.rateStar{
+  width:42px; height:42px; border-radius:10px;
+  display:grid; place-items:center; cursor:pointer;
+  border:1px solid var(--border); background:var(--card); color:var(--muted);
+  transition:transform .12s, color .12s, border-color .12s, background .12s;
+}
+.rateStar.active{
+  color:var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 55%, var(--border));
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+}
+.rateStar:hover{ transform:translateY(-1px); }
+
+.rateEmoji{ margin:2px 0 12px; font-size:22px; }
+
+.rateSubmit{
+  width:100%;
+  max-width:380px;
+  margin:0 auto;
+  padding:14px 18px;               /* bigger button */
+  border-radius:12px;
+  border:1px solid transparent;
+  font-weight:900;
+  font-size:16px;                  /* larger label */
+  color:#fff;
+  background:var(--brand);
+  box-shadow:0 10px 18px color-mix(in srgb, var(--brand) 26%, transparent);
+  cursor:pointer;
+}
+.rateSubmit.hot:hover{ background:var(--brand-600); transform:translateY(-1px); }
+.rateSubmit:disabled{
+  opacity:.6; cursor:not-allowed; box-shadow:none;
+}
+
+.rateStar {
+  width:42px; height:42px; border-radius:10px;
+  display:grid; place-items:center; cursor:pointer;
+  border:1px solid var(--border); 
+  background:var(--card); 
+  color:var(--muted);
+  transition:transform .12s, color .12s, border-color .12s, background .12s;
+}
+
+.rateStar.active {
+  color:#facc15; /* gold star */
+  border-color: color-mix(in srgb, #facc15 55%, var(--border));
+  background: color-mix(in srgb, #facc15 12%, transparent);
+}
+
+.rateStar:hover {
+  transform:translateY(-1px);
+  color:#facc15; /* preview gold on hover */
+}
+
+
+/* Red "X" close button (replaces 'Maybe later') */
+.ratingClose{
+  position:absolute; top:10px; right:10px;
+  width:32px; height:32px; border-radius:8px;
+  border:1px solid color-mix(in srgb, var(--danger) 55%, transparent);
+  background:color-mix(in srgb, var(--danger) 15%, var(--card));
+  color:var(--danger); font-weight:900; cursor:pointer;
+}
+
+/* Headline + sub */
+.ratingTitle{ margin:6px 0 8px; font-weight:900; font-size:clamp(20px,2.6vw,26px); }
+.ratingSub{ margin:0 0 14px; color:var(--muted); font-weight:600; }
+
+/* Stars row */
+.ratingStars{ display:flex; gap:12px; justify-content:center; align-items:center; margin:6px 0 6px; }
+.starBtn{
+  width:44px; height:44px; display:grid; place-items:center;
+  border-radius:10px; border:1px solid transparent; background:transparent; cursor:pointer;
+  transition:transform .12s ease;
+}
+.starBtn:hover{ transform:translateY(-1px) scale(1.04); }
+
+/* Star SVG default (unselected): outline only */
+.starIcon{
+  width:28px; height:28px;
+  fill:none;
+  stroke:color-mix(in srgb, var(--muted) 75%, transparent);
+  stroke-width:2;
+}
+
+/* Gold when hovered/selected */
+.starBtn.filled .starIcon{
+  fill:#fbbf24;             /* gold (amber-400) */
+  stroke:#f59e0b;           /* amber-500 outline */
+  filter:drop-shadow(0 0 6px rgba(251,191,36,.45));
+}
+
+/* Large emoji for mood (x3-ish) */
+.moodEmoji{ font-size:48px; line-height:1; margin:8px 0 14px; }
+
+/* Big clear submit button */
+.ratingSubmit{
+  width:100%;
+  padding:14px 16px;
+  font-weight:900;
+  font-size:18px;
+}
+
+
+.ratingClose{
+  position:absolute; top:10px; right:10px;
+  width:34px; height:34px; border-radius:10px;
+  border:1px solid color-mix(in srgb, var(--danger) 55%, transparent);
+  background:color-mix(in srgb, var(--danger) 15%, var(--card));
+  color:var(--danger); font-weight:900; cursor:pointer;
+}
+
+.ratingTitle{ margin:6px 0 8px; font-weight:900; font-size:clamp(22px,2.8vw,28px); }
+.ratingSub{ margin:0 0 16px; color:var(--muted); font-weight:600; }
+
+/* === Bigger stars, each in its own "box" === */
+.ratingStars{
+  display:flex; gap:14px; justify-content:center; align-items:center; margin:8px 0 10px;
+  flex-wrap:wrap;
+}
+.starBtn{
+  width:64px; height:64px;      /* bigger box */
+  display:grid; place-items:center;
+  border-radius:12px;
+  border:1.5px solid var(--border);
+  background:color-mix(in srgb, var(--bg) 94%, transparent);
+  cursor:pointer;
+  transition:transform .12s ease, border-color .12s ease, background .12s ease;
+}
+.starBtn:hover{ transform:translateY(-1px) scale(1.04);
+  border-color: color-mix(in srgb, var(--brand) 55%, var(--border));
+  background:color-mix(in srgb, var(--brand) 6%, var(--bg) 94%);
+}
+
+/* Large star glyph */
+.starIcon{
+  width:36px; height:36px;
+  fill:none;
+  stroke:color-mix(in srgb, var(--muted) 75%, transparent);
+  stroke-width:2;
+}
+
+/* Gold when selected/hovered (we apply filled on hover via JS logic) */
+.starBtn.filled .starIcon{
+  fill:#fbbf24;              /* amber-400 */
+  stroke:#f59e0b;            /* amber-500 */
+  filter:drop-shadow(0 0 7px rgba(251,191,36,.5));
+}
+
+/* Larger emoji */
+.moodEmoji{ font-size:56px; line-height:1; margin:10px 0 16px; }
+
+/* Submit button – clear and bold */
+.ratingSubmit{
+  width:100%;
+  padding:16px 18px;
+  font-weight:900;
+  font-size:19px;
+}
+
+/* ===== CLEAN RATING + CONFETTI (canonical) ===== */
+
+/* Overlay: heavy blur + darken, sits above app; confetti will be above this */
+.ratingOverlay{
+  position:fixed; inset:0; z-index:1500;
+  background:rgba(0,0,0,.65);
+  backdrop-filter:blur(22px) saturate(170%);
+  -webkit-backdrop-filter:blur(22px) saturate(170%);
+  display:grid; place-items:center;
+}
+
+/* Card */
+.ratingCard{
+  width:min(92vw, 600px);
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:20px;
+  box-shadow:var(--shadow);
+  padding:28px 26px 24px;
+  position:relative;
+  text-align:center;
+}
+
+/* Red X close button */
+.ratingClose{
+  position:absolute; top:10px; right:10px;
+  width:34px; height:34px; border-radius:10px;
+  border:1px solid color-mix(in srgb, var(--danger) 55%, transparent);
+  background:color-mix(in srgb, var(--danger) 15%, var(--card));
+  color:var(--danger); font-weight:900; cursor:pointer;
+}
+
+/* Headings */
+.ratingTitle{ margin:6px 0 8px; font-weight:900; font-size:clamp(22px,2.8vw,28px); }
+.ratingSub{ margin:0 0 16px; color:var(--muted); font-weight:600; }
+
+/* Stars: boxed, larger, gold when active */
+.ratingStars{
+  display:flex; gap:14px; justify-content:center; align-items:center;
+  margin:8px 0 10px; flex-wrap:wrap;
+}
+.starBtn{
+  width:64px; height:64px;
+  display:grid; place-items:center;
+  border-radius:12px;
+  border:1.5px solid var(--border);
+  background:color-mix(in srgb, var(--bg) 94%, transparent);
+  cursor:pointer;
+  transition:transform .12s ease, border-color .12s ease, background .12s ease;
+}
+.starBtn:hover{
+  transform:translateY(-1px) scale(1.04);
+  border-color: color-mix(in srgb, var(--brand) 55%, var(--border));
+  background:color-mix(in srgb, var(--brand) 6%, var(--bg) 94%);
+}
+
+.starIcon{
+  width:36px; height:36px;
+  fill:none;
+  stroke:color-mix(in srgb, var(--muted) 75%, transparent);
+  stroke-width:2;
+}
+.starBtn.filled .starIcon{
+  fill:#fbbf24;      /* gold */
+  stroke:#f59e0b;    /* darker gold outline */
+  filter:drop-shadow(0 0 7px rgba(251,191,36,.5));
+}
+
+/* Emoji larger */
+.moodEmoji{ font-size:56px; line-height:1; margin:10px 0 16px; }
+
+/* Submit button (bigger label) */
+.ratingSubmit{
+  width:100%; padding:16px 18px;
+  font-weight:900; font-size:19px;
+}
+
+/* Confetti canvas: full-screen, always on top */
+#confetti-layer{
+  position:fixed; inset:0;
+  width:100%; height:100%;
+  pointer-events:none;
+  z-index:2147483647;
+}
+
+@keyframes confettiFall {
+  to { transform: translateY(100vh) rotate(720deg); opacity: 1; }
+}
