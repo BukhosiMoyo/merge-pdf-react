@@ -1,24 +1,36 @@
-# Node
+# ─── Node.js dependencies ───
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─── Build outputs ───
 dist/
 build/
-*.log
-
-# Vite / React
 .vite/
+.next/
+out/
 
-# Env
-.env*
+# ─── Env files ───
+.env
+.env.local
+.env.*.local
+# keep examples
 !.env.example
 
-# OS
+# ─── Logs ───
+*.log
+
+# ─── OS files ───
 .DS_Store
 Thumbs.db
 
-# App runtime (backend)
+# ─── App runtime (backend specific) ───
 packages/backend/tmp/
 packages/backend/uploads/
-
-# Vercel/CI local
-.vercel/
 packages/backend/data/
+
+# ─── CI/CD / Deployment ───
+.vercel/
+.netlify/
