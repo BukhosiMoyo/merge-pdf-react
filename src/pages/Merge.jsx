@@ -47,7 +47,7 @@ if (!import.meta.env.VITE_API_BASE) {
 
 
 /* ---------- Sortable Tile ---------- */
-function SortableTile({ id, file, thumb, pages, onRemove, onRotate, rotate = 0 }) {
+function SortableTile({ id, file, thumb, pages, onRemove, onRotate, onViewPdf, rotate = 0 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
   const style = {
@@ -319,6 +319,12 @@ export default function Merge() {
         x.id === id ? { ...x, rotate: (x.rotate + 90) % 360 } : x
       )
     );
+  }
+
+  // PDF viewer
+  function onViewPdf(id, file, thumb) {
+    setViewingPdf({ id, file, thumb, pages: pageCounts[id] });
+    setPdfViewerOpen(true);
   }
 
   // delete / undo
@@ -684,11 +690,39 @@ export default function Merge() {
          </div>
        )}
  
-       {/* Bin/Undo */}
-       <BinOverlay count={trash.length} onUndo={restoreOne} onUndoAll={restoreAll} />
-     </Layout>
-   );
-}
+               {/* Bin/Undo */}
+        <BinOverlay count={trash.length} onUndo={restoreOne} onUndoAll={restoreAll} />
+
+        {/* PDF Viewer Modal */}
+        {pdfViewerOpen && viewingPdf && (
+          <div className="pdfViewerModal" onClick={() => setPdfViewerOpen(false)}>
+            <div className="pdfViewerContent" onClick={(e) => e.stopPropagation()}>
+              <div className="pdfViewerHeader">
+                <h3>{viewingPdf.file.name}</h3>
+                <button 
+                  className="pdfViewerClose"
+                  onClick={() => setPdfViewerOpen(false)}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="pdfViewerBody">
+                <img 
+                  src={viewingPdf.thumb} 
+                  alt="PDF Preview" 
+                  className="pdfViewerImage"
+                />
+                <div className="pdfViewerInfo">
+                  <p><strong>Pages:</strong> {viewingPdf.pages || 'Unknown'}</p>
+                  <p><strong>Size:</strong> {(viewingPdf.file.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Layout>
+    );
+  }
 
 /* util */
 function rid(n = 8) {

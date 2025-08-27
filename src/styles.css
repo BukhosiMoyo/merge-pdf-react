@@ -1173,7 +1173,7 @@ a.btn, .btnGhost, .primaryBtn, .primaryDownloadBtn { text-decoration:none !impor
 /* Stars: boxed, larger, gold when active */
 .ratingStars{
   display:flex; gap:14px; justify-content:center; align-items:center;
-  margin:8px 0 10px; flex-wrap:wrap;
+  margin:8px 0 10px; flex-wrap:nowrap;
 }
 .starBtn{
   width:64px; height:64px;
@@ -1209,6 +1209,27 @@ a.btn, .btnGhost, .primaryBtn, .primaryDownloadBtn { text-decoration:none !impor
 .ratingSubmit{
   width:100%; padding:16px 18px;
   font-weight:900; font-size:19px;
+}
+
+/* Mobile responsive adjustments for rating */
+@media (max-width: 480px) {
+  .ratingStars {
+    gap: 8px;
+  }
+  
+  .starBtn {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .starIcon {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .ratingCard {
+    padding: 20px 16px;
+  }
 }
 
 /* Confetti canvas: full-screen, always on top */
@@ -1377,7 +1398,7 @@ html[data-theme="dark"] .logo-dark  { display:inline; }
 .faqWrap{
   /* explicit, stable width: 700px or full width minus padding (whichever is smaller) */
   width: min(700px, 100% - 24px);
-  margin: 150px auto 60px;   /* increased top margin for more space above FAQs */
+  margin: 150px auto 120px;   /* increased bottom margin to prevent footer overlap */
   padding: 0 12px;          /* breathing room on small screens */
   text-align: left;
 }
@@ -1616,5 +1637,118 @@ html[data-theme="dark"] .logo-dark  { display:inline; }
   
   .reviewsSection {
     padding: 24px 20px;
+  }
+}
+
+/* PDF Viewer Modal */
+.pdfViewerModal {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+}
+
+.pdfViewerContent {
+  background: var(--card);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+.pdfViewerHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.pdfViewerHeader h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdfViewerClose {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--danger);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pdfViewerClose:hover {
+  background: var(--danger);
+  color: white;
+  transform: scale(1.05);
+}
+
+.pdfViewerBody {
+  padding: 24px;
+  text-align: center;
+}
+
+.pdfViewerImage {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.pdfViewerInfo {
+  text-align: left;
+  background: var(--bg);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.pdfViewerInfo p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.pdfViewerInfo strong {
+  color: var(--brand);
+}
+
+/* Clickable thumbnail */
+.clickableThumb {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.clickableThumb:hover {
+  transform: scale(1.02);
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
