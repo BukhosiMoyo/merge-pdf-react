@@ -30,6 +30,38 @@ export default function RatingDialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // Focus trap for accessibility
+  useEffect(() => {
+    if (!open) return;
+    
+    const focusableElements = document.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+    
+    const handleTabKey = (e) => {
+      if (e.key === 'Tab') {
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+      }
+    };
+    
+    document.addEventListener('keydown', handleTabKey);
+    firstElement?.focus();
+    
+    return () => document.removeEventListener('keydown', handleTabKey);
+  }, [open]);
+
   const faces = useMemo(() => ["😠", "☹️", "😐", "😊", "🤩"], []);
   const active = hover || rating;
 
@@ -62,7 +94,7 @@ export default function RatingDialog({
   return (
     <div className="ratingOverlay" role="dialog" aria-modal="true" aria-labelledby="rating-title">
       <div className="ratingCard">
-        {/* Red X (replaces Maybe later) */}
+        {/* Close button */}
         <button
           className="ratingClose"
           onClick={onClose}
@@ -72,12 +104,12 @@ export default function RatingDialog({
           ✕
         </button>
 
-        <h3 id="rating-title" className="ratingTitle">How was the merge?</h3>
+        <h3 id="rating-title" className="ratingTitle">Rate your merge</h3>
         <p className="ratingSub">
-          Your quick rating helps improve <strong>{siteName}</strong> for everyone.
+          How was the experience today?
         </p>
 
-        {/* Bigger boxed stars; .filled makes them gold via your CSS */}
+        {/* Star rating buttons */}
         <div className="ratingStars" role="radiogroup" aria-label="Rate from 1 to 5">
           {[1, 2, 3, 4, 5].map((n) => (
             <button
@@ -97,18 +129,29 @@ export default function RatingDialog({
           ))}
         </div>
 
-        {/* Big emoji (size via CSS) */}
+        {/* Mood emoji */}
         <div className="moodEmoji" aria-hidden>
           {active ? faces[active - 1] : "🙂"}
         </div>
 
+        {/* Submit button */}
         <button
-          className="primaryBtn ratingSubmit"
+          className="ratingSubmit"
           onClick={submit}
           disabled={!rating || busy}
           type="button"
         >
           {busy ? "Submitting…" : "Submit rating"}
+        </button>
+        
+        {/* Dismiss button */}
+        <button
+          className="nextAction"
+          onClick={onClose}
+          type="button"
+          style={{ marginTop: '16px', width: '100%' }}
+        >
+          Not now
         </button>
       </div>
     </div>

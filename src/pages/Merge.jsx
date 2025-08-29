@@ -2,27 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout.jsx";
 import StatsAndFAQ from "../components/StatsAndFAQ.jsx";
+import { DndContext, DragOverlay, rectIntersection, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy } from '@dnd-kit/sortable';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
-
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  rectSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-
-/* pdf.js for thumbnails */
-import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
-import pdfjsWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
-GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 /* lucide icons */
 import {
@@ -30,8 +14,9 @@ import {
   ArrowUpDown,
   RotateCcw,
   X as XIcon,
-  FileText,
   Trash2,
+  Eye,
+  FileText,
 } from "lucide-react";
 
 
@@ -45,88 +30,219 @@ if (!import.meta.env.VITE_API_BASE) {
   console.warn("VITE_API_BASE not set. Using fallback:", API);
 }
 
+// Helper functions
+function formatBytes(bytes){
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes/1024).toFixed(2)} KB`;
+  return `${(bytes/1024/1024).toFixed(2)} MB`;
+}
+function pluralize(n, word){ return `${n} ${word}${n===1?'':'s'}`; }
 
-/* ---------- Sortable Tile ---------- */
-function SortableTile({ id, file, thumb, pages, onRemove, onRotate, onViewPdf, rotate = 0 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
+// Helper function to open PDF for multi-page viewer
+async function openPdfForViewer(file) {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    return pdf; // caller will render pages lazily
+  } catch (error) {
+    console.error('Error opening PDF:', error);
+    return null;
+  }
+}
+
+
+
+
+/* ---------- Sortable PDF Tile Component ---------- */
+function SortablePdfTile({ fileItem, setSelectedPdf, pdfThumbnails, pdfPageCounts, rotateById, removeById, setTileRef, isDragging: isDraggingProp }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ 
+    id: fileItem.id,
+    transition: {
+      duration: 150,
+      easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+    },
+  });
+
+  console.log('SortablePdfTile render:', { 
+    id: fileItem.id, 
+    attributes: Object.keys(attributes), 
+    listeners: Object.keys(listeners),
+    isDragging 
+  });
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    zIndex: isDragging ? 10 : "auto",
+    ...(fileItem.fly && fileItem.flyTo
+        ? { transform: `translate(${fileItem.flyTo.dx}px, ${fileItem.flyTo.dy}px) scale(.2)` }
+        : null),
   };
-  const size =
-    file.size < 1024
-      ? `${file.size} B`
-      : file.size < 1024 * 1024
-      ? `${(file.size / 1024).toFixed(0)} KB`
-      : `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+
+  const name = fileItem.file.name || 'document.pdf';
+      const displayName = name.length > 40 ? name.slice(0, 40) + '…' : name;
+
+  // detect overflow for name tooltip
+  const nameRef = useRef(null);
+  const [overflow, setOverflow] = useState(false);
+  useEffect(() => {
+    const el = nameRef.current;
+    if (!el) return;
+    setOverflow(el.scrollWidth > el.clientWidth);
+  }, [name]);
 
   return (
-    <article
-      ref={setNodeRef}
-      style={style}
-      className="mergeTile"
-      {...attributes}
-      {...listeners}
-    >
-      <div className="mergeTile__thumb">
-        <div className="fileBadge">
-          <FileText size={14} />
-          PDF
+          <div 
+        ref={(node) => { setNodeRef(node); setTileRef(fileItem.id, node); }}
+        style={style} 
+        className={`pdfTile ${isDragging ? 'dragging' : ''} ${fileItem.fly ? 'flyToTrash' : ''}`}
+        {...attributes} 
+        {...listeners}
+      >
+            {/* PDF Preview */}
+      <div className="pdfPreview" onClick={() => setSelectedPdf(fileItem)}>
+        <div className="pdfPreviewInner">
+          {pdfThumbnails[fileItem.id] ? (
+            <img 
+              src={pdfThumbnails[fileItem.id]} 
+              alt={`Preview of ${name}`}
+              className="pdfThumbnail"
+              style={{ transform: `rotate(${fileItem.rotate}deg)` }}
+            />
+          ) : (
+            <div className="pdfPlaceholder">
+              <FileText size={44} />
+              <span>Loading...</span>
+            </div>
+          )}
         </div>
 
-        <div className="thumbTooltip">
-          <div className="tooltip above">
-            {size} • {pages ?? "…"} pages
+        {fileItem.rotate !== 0 && (
+          <div className="rotationIndicator">
+            {fileItem.rotate}°
           </div>
-        </div>
-
-        {thumb ? (
-          <img 
-            src={thumb} 
-            alt="" 
-            style={{ 
-              transform: `rotate(${rotate}deg)`,
-              transition: 'transform 0.3s ease'
-            }}
-            onClick={() => onViewPdf(id, file, thumb)}
-            className="clickableThumb"
-          />
-        ) : (
-          <div className="thumbStub">PDF</div>
         )}
-
-        <div className="tileActions">
+        
+        {/* Tile Actions - Top Right */}
+        <div className={`tileActions ${isDragging ? 'hiddenDuringDrag' : ''}`}>
           <div className="tooltipHost">
-            <button
-              className="iconBtn square rotate"
-              onClick={() => onRotate(id)}
-              aria-label="Rotate file"
+            <button 
+              className="tileActionBtn rotateBtn"
+              onClick={(e) => { e.stopPropagation(); rotateById(fileItem.id); }}
             >
-              <RotateCcw size={18} />
+              <RotateCcw size={16} />
             </button>
-            <div className="tooltip above">Rotate file</div>
+            <div className="tooltip above">Rotate</div>
           </div>
-
           <div className="tooltipHost">
-            <button
-              className="iconBtn square danger"
-              onClick={() => onRemove(id)}
-              aria-label="Remove file"
+            <button 
+              className="tileActionBtn deleteBtn"
+              onClick={(e) => { e.stopPropagation(); removeById(fileItem.id); }}
             >
-              <XIcon size={18} strokeWidth={2.5} />
+              <XIcon size={16} />
             </button>
-            <div className="tooltip above">Remove file</div>
+            <div className="tooltip above">Remove this file</div>
+          </div>
+        </div>
+
+        {/* File Info Tooltip - Above tile */}
+        <div className="pdfInfoTooltip">
+          {`${formatBytes(fileItem.file.size)} - ${
+            pdfPageCounts[fileItem.id] ? `${pdfPageCounts[fileItem.id]} page${pdfPageCounts[fileItem.id]===1?'':'s'}` : '… pages'
+          }`}
+        </div>
+      </div>
+      
+      {/* PDF Name */}
+      <div ref={nameRef} className="pdfName" data-overflow={overflow ? 'true' : 'false'} title="">
+        {displayName}
+      </div>
+      {/* Custom tooltip only if overflow */}
+      {overflow && <div className="pdfNameTooltip">{name}</div>}
+    </div>
+  );
+}
+
+/* ---------- Multi-Page PDF Viewer Component ---------- */
+function PdfViewer({ selected, onClose }) {
+  const containerRef = useRef(null);
+  const [pages, setPages] = useState([]); // {index, canvas} list
+  const pdfRef = useRef(null);
+
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!selected) return;
+      const pdf = await openPdfForViewer(selected.file);
+      if (!mounted) return;
+      pdfRef.current = pdf;
+      const total = pdf.numPages;
+      setPages(Array.from({ length: total }, (_, i) => ({ index: i+1, ready: false })));
+    })();
+    return () => { mounted = false; };
+  }, [selected]);
+
+  useEffect(() => {
+    if (!containerRef.current || !pdfRef.current) return;
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(async (e) => {
+        if (!e.isIntersecting) return;
+        const index = Number(e.target.dataset.index);
+        const page = await pdfRef.current.getPage(index);
+        const scale = 1.2;
+        const viewport = page.getViewport({ scale });
+        const canvas = e.target.querySelector('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = viewport.width; canvas.height = viewport.height;
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        e.target.dataset.rendered = '1';
+      });
+    }, { root: containerRef.current, threshold: 0.1 });
+
+    const nodes = containerRef.current.querySelectorAll('.viewerPage');
+    nodes.forEach(n => io.observe(n));
+    return () => io.disconnect();
+  }, [pages]);
+
+  if (!selected) return null;
+
+  return (
+    <div className="pdfViewerOverlay" onClick={onClose}>
+      <div className="pdfViewerModal" onClick={(e) => e.stopPropagation()}>
+        <div className="pdfViewerHeader">
+          <h3>{selected.file.name}</h3>
+          <button className="pdfViewerClose" onClick={onClose}>×</button>
+        </div>
+        <div className="pdfViewerContent" ref={containerRef}>
+          {pages.map(p => (
+            <div key={p.index} className="viewerPage" data-index={p.index}
+                 style={{ margin: '0 auto 16px', maxWidth: '980px' }}>
+              <canvas />
+            </div>
+          ))}
+        </div>
+        <div className="pdfViewerFooter">
+          <div className="pdfViewerInfo">
+            <span><strong>Size:</strong> {(selected.file.size/1024/1024).toFixed(2)} MB</span>
+            <span><strong>Pages:</strong> {pages.length || '…'}</span>
+            <span><strong>Rotation:</strong> {selected.rotate}°</span>
           </div>
         </div>
       </div>
-
-      <div className="mergeTile__meta tooltipHost">
-        <span className="name">{file.name}</span>
-        <div className="tooltip above">{file.name}</div>
-      </div>
-    </article>
+    </div>
   );
 }
 
@@ -134,19 +250,13 @@ function SortableTile({ id, file, thumb, pages, onRemove, onRotate, onViewPdf, r
 function BinOverlay({ count, onUndo, onUndoAll }) {
   if (!count) return null;
   return (
-    <div className="binOverlay">
-      <div className="bin hot" title="Deleted files bin">
-        <Trash2 />
-        <div className="binBadge">{count}</div>
-      </div>
-      <div className="undoToast">
-        <button onClick={onUndo}>↩︎ Undo</button>
-        {count > 1 && (
-          <button onClick={onUndoAll} style={{ background: "#111", marginLeft: 6 }}>
-            ↩︎ Undo all
-          </button>
-        )}
-      </div>
+    <div className="undoToast">
+      <button onClick={onUndo}>↩︎ Undo</button>
+      {count > 1 && (
+        <button onClick={onUndoAll} style={{ background: "#111", marginLeft: 6 }}>
+          ↩︎ Undo all
+        </button>
+      )}
     </div>
   );
 }
@@ -161,18 +271,43 @@ export default function Merge() {
   const [locale, setLocale] = useState("en");
 
   const [sortDir, setSortDir] = useState("az");
-  const [dragging, setDragging] = useState(false);
-  const [shuffleKey, setShuffleKey] = useState(0);
-  const [thumbs, setThumbs] = useState({}); // id -> dataURL
-  const [pageCounts, setPageCounts] = useState({}); // id -> number
   const [dropActive, setDropActive] = useState(false);
-  const [trash, setTrash] = useState([]); // [{id,file,originalIndex,thumb,pages}]
-  const [controlsCompact, setControlsCompact] = useState(false);
-  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
-  const [viewingPdf, setViewingPdf] = useState(null);
+  const [trash, setTrash] = useState([]); // [{id,file,originalIndex}]
+  const [showTips, setShowTips] = useState(false);
+  const [selectedPdf, setSelectedPdf] = useState(null); // For PDF viewer modal
+  const [pdfThumbnails, setPdfThumbnails] = useState({}); // Store PDF thumbnails
+  const [pdfPageCounts, setPdfPageCounts] = useState({}); // Store PDF page counts
+  const [activeId, setActiveId] = useState(null);       // For DnD placeholder
+  const [activeItem, setActiveItem] = useState(null);   // For DragOverlay preview
+  const [isDragging, setIsDragging] = useState(false);
+  const [prevArrow, setPrevArrow] = useState(null);    // {x,y,w,h} from getBoundingClientRect
+  const [showTrashDock, setShowTrashDock] = useState(false);
 
   const inputRef = useRef(null);
   const canvasRef = useRef(null);
+  
+  // Tile refs for fly animation
+  const tileRefs = useRef(new Map());
+  const setTileRef = (id, node) => {
+    if (node) tileRefs.current.set(id, node);
+    else tileRefs.current.delete(id);
+  };
+
+  const trashDockRef = useRef(null);
+
+  // Drag and Drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  console.log('Sensors configured:', sensors);
 
   // meta
   useEffect(() => {
@@ -186,6 +321,16 @@ export default function Merge() {
         return x;
       })();
     m.content = "Combine PDFs in the order you want. Drag & drop or click the big button.";
+    
+    // Load PDF.js for thumbnail generation
+    if (!window.pdfjsLib) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.onload = () => {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      };
+      document.head.appendChild(script);
+    }
   }, []);
 
   // theme init
@@ -206,41 +351,45 @@ export default function Merge() {
     localStorage.setItem("theme", next);
   }
 
-  // sensors
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
-  // previews
-  async function generateThumbAndPagesMeta(id, file) {
-    try {
-      const ab = await file.arrayBuffer();
-      const task = getDocument({ data: ab });
-      const pdf = await task.promise;
-
-      setPageCounts((prev) => ({ ...prev, [id]: pdf.numPages }));
-
-      const page = await pdf.getPage(1);
-      const desiredH = 220;
-      const vp1 = page.getViewport({ scale: 1 });
-      const scale = desiredH / vp1.height;
-      const vp = page.getViewport({ scale });
-
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d", { alpha: false, willReadFrequently: true });
-      canvas.width = Math.max(1, Math.floor(vp.width));
-      canvas.height = Math.max(1, Math.floor(vp.height));
-
-      await page.render({ canvasContext: ctx, viewport: vp, intent: "display" }).promise;
-      const url = canvas.toDataURL("image/png");
-      setThumbs((prev) => ({ ...prev, [id]: url }));
-    } catch (err) {
-      console.error("preview failed", err);
-      setThumbs((prev) => ({ ...prev, [id]: null }));
-    }
-  }
 
   // intake files
   function isPdf(f) {
     return f?.type === "application/pdf" || /\.pdf$/i.test(f?.name || "");
+  }
+
+  // Generate PDF thumbnail and get page count
+  async function generateThumbnail(file) {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdfjsLib = window.pdfjsLib;
+      
+      if (!pdfjsLib) {
+        console.warn('PDF.js not loaded, using fallback thumbnail');
+        return { thumbnail: null, pageCount: 0 };
+      }
+
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pageCount = pdf.numPages;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 0.5 });
+      
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+      
+      const thumbnail = canvas.toDataURL('image/jpeg', 0.8);
+      return { thumbnail, pageCount };
+    } catch (error) {
+      console.warn('Failed to generate thumbnail:', error);
+      return { thumbnail: null, pageCount: 0 };
+    }
   }
 
   async function acceptFiles(fileList) {
@@ -262,12 +411,25 @@ export default function Merge() {
       rotate: 0,
       fly: false,
     }));
-    setFiles((prev) => [...prev, ...added]);
-
-    for (const it of added) {
-      // eslint-disable-next-line no-await-in-loop
-      await generateThumbAndPagesMeta(it.id, it.file);
+    
+    // Generate thumbnails and get page counts for new files
+    for (const item of added) {
+      const result = await generateThumbnail(item.file);
+      if (result.thumbnail) {
+        setPdfThumbnails(prev => ({
+          ...prev,
+          [item.id]: result.thumbnail
+        }));
+      }
+      if (result.pageCount > 0) {
+        setPdfPageCounts(prev => ({
+          ...prev,
+          [item.id]: result.pageCount
+        }));
+      }
     }
+    
+    setFiles((prev) => [...prev, ...added]);
   }
   function onPick(e) {
     acceptFiles(e.target.files);
@@ -288,29 +450,7 @@ export default function Merge() {
     if (e.dataTransfer?.files?.length) acceptFiles(e.dataTransfer.files);
   }
 
-  // scroll listener to compact controls
-  useEffect(() => {
-    const el = canvasRef.current;
-    if (!el) return;
-    const onScroll = () => setControlsCompact(el.scrollTop > 16);
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, []);
 
-  // sortable
-  function onDragStart() {
-    setDragging(true);
-    document.body.style.overflow = "hidden";
-  }
-  function onDragEnd(e) {
-    setDragging(false);
-    document.body.style.overflow = "";
-    const { active, over } = e;
-    if (!over || active.id === over.id) return;
-    const oldIndex = files.findIndex((x) => x.id === active.id);
-    const newIndex = files.findIndex((x) => x.id === over.id);
-    setFiles(arrayMove(files, oldIndex, newIndex));
-  }
 
   // rotation
   function rotateById(id) {
@@ -321,23 +461,44 @@ export default function Merge() {
     );
   }
 
-  // PDF viewer
-  function onViewPdf(id, file, thumb) {
-    setViewingPdf({ id, file, thumb, pages: pageCounts[id] });
-    setPdfViewerOpen(true);
-  }
+
 
   // delete / undo
   function removeById(id) {
-    const victim = files.find((x) => x.id === id);
-    if (!victim) return;
-    const vThumb = thumbs[id];
-    const vPages = pageCounts[id];
-    setFiles((prev) => prev.map((x) => (x.id === id ? { ...x, fly: true } : x)));
+    // guard: already flying or already removed
+    const victim = files.find(x => x.id === id);
+    if (!victim || victim.fly) return;
+
+    const tileEl = tileRefs.current.get(id);
+    const binEl = trashDockRef.current;
+
+    // ensure dock is visible for the animation
+    setShowTrashDock(true);
+
+    if (!tileEl || !binEl) {
+      setFiles(prev => prev.map(x => x.id === id ? ({ ...x, fly: true }) : x));
+      setTimeout(() => {
+        setFiles(prev => prev.filter(x => x.id !== id));
+        setTrash(prev => [...prev, { ...victim }]);
+        setShowTrashDock(false);
+      }, 460);
+      return;
+    }
+
+    const tileRect = tileEl.getBoundingClientRect();
+    const binRect  = binEl.getBoundingClientRect();
+    const dx = (binRect.left + binRect.width/2) - (tileRect.left + tileRect.width/2);
+    const dy = (binRect.top  + binRect.height/2) - (tileRect.top  + tileRect.height/2);
+
+    // trigger fly
+    setFiles(prev => prev.map(x => x.id === id ? ({ ...x, fly: true, flyTo: { dx, dy } }) : x));
+
     setTimeout(() => {
-      setFiles((prev) => prev.filter((x) => x.id !== id));
-      setTrash((prev) => [...prev, { ...victim, thumb: vThumb, pages: vPages }]);
-    }, 350);
+      setFiles(prev => prev.filter(x => x.id !== id));
+      setTrash(prev => [...prev, { ...victim }]);
+      // hide the dock shortly after the animation
+      setTimeout(() => setShowTrashDock(false), 150);
+    }, 460);
   }
   function restoreOne() {
     setTrash((prev) => {
@@ -347,8 +508,6 @@ export default function Merge() {
         ...f,
         { id: last.id, file: last.file, originalIndex: last.originalIndex, rotate: 0, fly: false },
       ]);
-      if (last.thumb) setThumbs((th) => ({ ...th, [last.id]: last.thumb }));
-      if (last.pages) setPageCounts((pc) => ({ ...pc, [last.id]: last.pages }));
       return prev.slice(0, -1);
     });
   }
@@ -368,24 +527,6 @@ export default function Merge() {
         })),
       ]);
 
-      // restore thumbs
-      setThumbs((th) => {
-        const n = { ...th };
-        prev.forEach((x) => {
-          if (x.thumb) n[x.id] = x.thumb;
-        });
-        return n;
-      });
-
-      // restore page counts
-      setPageCounts((pc) => {
-        const n = { ...pc };
-        prev.forEach((x) => {
-          if (x.pages) n[x.id] = x.pages;
-        });
-        return n;
-      });
-
       return [];
     });
   }
@@ -403,7 +544,6 @@ export default function Merge() {
   }
   function restoreOriginal() {
     setFiles((prev) => [...prev].sort((a, b) => a.originalIndex - b.originalIndex));
-    setShuffleKey((x) => x + 1);
   }
 
   // merge
@@ -468,8 +608,20 @@ export default function Merge() {
         const n = parseInt(localStorage.getItem("merged_counter") || "0", 10) + 1;
         localStorage.setItem("merged_counter", String(n));
         const name = `merged-${n}.pdf`;
-        nav(`/${locale}/download?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`, {
+        
+        // Generate a unique ID for the download
+        const downloadId = rid(12);
+        
+        // Calculate expiry time (1 hour from now)
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        
+        nav(`/${locale}/download/${downloadId}/${encodeURIComponent(name)}`, {
           replace: true,
+          state: { 
+            downloadUrl: url, 
+            fileName: name,
+            expiresAt: expiresAt
+          }
         });
         return;
       }
@@ -493,6 +645,41 @@ export default function Merge() {
 
   const hasFiles = files.length > 0;
 
+  // Drag and Drop handlers
+  function handleDragStart(event) {
+    const id = event.active.id;
+    setActiveId(id);
+    setActiveItem(files.find(f => f.id === id) || null);
+    setIsDragging(true);
+    // compute previous slot position for arrow
+    const el = tileRefs.current.get(id);
+    if (el) {
+      const r = el.getBoundingClientRect();
+      setPrevArrow({ x: r.left + r.width/2, y: r.top - 8 }); // arrow above the tile
+    }
+  }
+
+  function handleDragOver(event) {
+    console.log('Drag over:', event);
+  }
+
+  function handleDragEnd(event) {
+    const { active, over } = event;
+    setActiveId(null);
+    setActiveItem(null);
+    setIsDragging(false);
+    setPrevArrow(null);
+    if (!over || active.id === over.id) return;
+    setFiles((items) => {
+      const oldIndex = items.findIndex((it) => it.id === active.id);
+      const newIndex = items.findIndex((it) => it.id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return items;
+      return arrayMove(items, oldIndex, newIndex);
+    });
+  }
+
+  // ... existing code ...
+
   return (
     <Layout
       headerProps={{
@@ -500,33 +687,52 @@ export default function Merge() {
         onToggleTheme: toggleTheme,
         locale,
         setLocale,
+        hideStats: hasFiles, // Hide Stats button when files are present (step 2)
       }}
     >
       <div
         className={`appShell ${!hasFiles ? "appShell--no-sidebar" : ""}`}
         style={{ height: "var(--app-height, auto)" }}
       >
-         <div
-           ref={canvasRef}
-           className={`canvasArea dropzone ${dropActive ? "dropActive" : ""}`}
-           onDragOver={onDragOver}
-           onDragLeave={onDragLeave}
-           onDrop={onDrop}
-         >
-          {!hasFiles ? (
-            <>
-              <section className="zeroState">
-                <h1 className="titleClamp">Merge PDF files</h1>
-                <p className="subtleClamp">
-                  Combine PDFs in the order you want. Drag &amp; drop or click the big button.
-                </p>
-                <button className="ctaHuge pulseBorderGreen" onClick={() => inputRef.current?.click()}>
-                  <span className="btnIcon">
-                    <Plus size={18} />
-                  </span>
-                  <span className="btnLabel">Select PDF files</span>
-                </button>
-                <p className="dropHint">or drop PDFs here</p>
+
+
+          <div
+            ref={canvasRef}
+            className={`canvasArea dropzone ${dropActive ? "dropActive" : ""}`}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+          >
+           {!hasFiles ? (
+             <>
+               <section className="zeroState">
+                 <h1 className="titleClamp">Merge PDF files</h1>
+                 <p className="subtleClamp">
+                   Combine PDFs in the order you want. Drag &amp; drop or click the big button.
+                 </p>
+                 <button className="ctaHuge pulseBorderGreen" onClick={() => inputRef.current?.click()}>
+                   <span className="btnLabel">Select PDF files</span>
+                   <span className="plusIcon">
+                     <Plus size={28} />
+                   </span>
+                 </button>
+                 <p className="dropHint">or drop PDFs here</p>
+                 
+                 <input
+                   ref={inputRef}
+                   type="file"
+                   accept="application/pdf"
+                   multiple
+                   onChange={onPick}
+                   hidden
+                 />
+               </section>
+
+               {/* Counter + FAQs on the empty step */}
+               <StatsAndFAQ />
+             </>
+           ) : (
+              <>
                 <input
                   ref={inputRef}
                   type="file"
@@ -535,133 +741,187 @@ export default function Merge() {
                   onChange={onPick}
                   hidden
                 />
-              </section>
+              </>
+            )}
+          </div>
+ 
+                                   
 
-              {/* Counter + FAQs on the empty step */}
-              <StatsAndFAQ />
-            </>
-          ) : (
-             <>
-               {/* Controls (collapse to icons on scroll) */}
-               <div className={`controlsRow ${controlsCompact ? "controlsRow--compact" : ""}`}>
-                 <div className="tooltipHost">
-                   <button
-                     className="btnGhost btnAdd btnAdd--pulse"
-                     onClick={() => inputRef.current?.click()}
-                   >
-                     <span className="btnIcon">
-                       <Plus size={18} />
-                     </span>
-                     <span className="btnLabel">
-                       {files.length} file{files.length === 1 ? "" : "s"} added
-                     </span>
-                   </button>
-                   <div className="tooltip bottom">Add more files</div>
-                 </div>
- 
-                 <div className="tooltipHost">
-                   <button className="btnGhost btnGhost--outlined2" onClick={toggleSort}>
-                     <span className="btnIcon">
-                       <ArrowUpDown size={18} />
-                     </span>
-                     <span className="btnLabel">A↕Z</span>
-                   </button>
-                   <div className="tooltip bottom">Sort A→Z</div>
-                 </div>
- 
-                 <div className="tooltipHost">
-                   <button className="btnGhost btnGhost--outlined2" onClick={restoreOriginal}>
-                     <span className="btnIcon">
-                       <RotateCcw size={18} />
-                     </span>
-                     <span className="btnLabel">Original</span>
-                   </button>
-                   <div className="tooltip bottom">Revert to original</div>
-                 </div>
-               </div>
- 
-               {/* Grid */}
-               <DndContext
-                 sensors={sensors}
-                 collisionDetection={closestCenter}
-                 onDragStart={onDragStart}
-                 onDragEnd={onDragEnd}
-               >
-                 <SortableContext items={files.map((f) => f.id)} strategy={rectSortingStrategy}>
-                   <div
-                     className={`tilesGrid ${dragging ? "dragging" : ""} ${
-                       shuffleKey ? "shuffleAnim" : ""
-                     }`}
-                   >
-                     {files.map(({ id, file, fly, rotate = 0 }) => (
-                       <div key={id} className={fly ? "flyOut" : ""}>
-                         <SortableTile
-                           id={id}
-                           file={file}
-                           thumb={thumbs[id]}
-                           pages={pageCounts[id]}
-                           rotate={rotate}
-                           onRemove={removeById}
-                           onRotate={rotateById}
-                         />
-                       </div>
-                     ))}
-                   </div>
-                 </SortableContext>
-               </DndContext>
- 
-               <input
-                 ref={inputRef}
-                 type="file"
-                 accept="application/pdf"
-                 multiple
-                 onChange={onPick}
-                 hidden
-               />
-             </>
-           )}
-         </div>
- 
-        {/* Sidebar: only render when there are files */}
-        {hasFiles ? (
-          <aside className="sidebarPane">
-            <div className="tipCard">
-              <h3>Tips</h3>
-              <p>Drag tiles to reorder. Use A↕Z to sort by name. Original restores first‑added order.</p>
+                                                                                   {/* Floating Action Buttons - Desktop Center Top, Mobile Right Side */}
+            {hasFiles && (
+              <div className="floatingActions">
+                {/* Add Files Button - FIRST (most important) */}
+                <div className="tooltipHost">
+                  <button 
+                    className="fabButton fabAdd" 
+                    onClick={() => inputRef.current?.click()}
+                    style={{ color: 'white' }}
+                    aria-disabled={isDragging}
+                  >
+                    <Plus size={22} style={{ color: 'white', opacity: 1, visibility: 'visible' }} />
+                  </button>
+                  {/* File Count Bubble - OUTSIDE the button */}
+                  <div className="fileCountBubble">
+                    {files.length}
+                  </div>
+                  <div className="tooltip bottom">Add more files</div>
+                </div>
+
+                {/* Sort Button */}
+                <div className="tooltipHost">
+                  <button 
+                    className="fabButton fabSort" 
+                    onClick={toggleSort}
+                    style={{ color: 'white' }}
+                    aria-disabled={isDragging}
+                  >
+                    <ArrowUpDown size={22} style={{ color: 'white', opacity: 1, visibility: 'visible' }} />
+                  </button>
+                  <div className="tooltip bottom">Sort A–Z / Z–A</div>
+                </div>
+
+                {/* Restore Original Button */}
+                <div className="tooltipHost">
+                  <button 
+                    className="fabButton fabRestore" 
+                    onClick={restoreOriginal}
+                    style={{ color: 'white' }}
+                    aria-disabled={isDragging}
+                  >
+                    <RotateCcw size={22} style={{ color: 'white', opacity: 1, visibility: 'visible' }} />
+                  </button>
+                  <div className="tooltip bottom">Restore original order</div>
+                </div>
+
+                {/* Tips/Info Button - LAST (least important) */}
+                <div className="tooltipHost">
+                  <button 
+                    className="fabButton fabInfo" 
+                    onClick={() => setShowTips(!showTips)}
+                    style={{ color: 'white' }}
+                    aria-disabled={isDragging}
+                  >
+                    <span className="fabIcon" style={{ color: 'white', opacity: 1, visibility: 'visible', fontSize: '22px', fontWeight: 'bold' }}>i</span>
+                  </button>
+                  <div className="tooltip bottom">Tips</div>
+                </div>
+              </div>
+            )}
+
+          {/* PDF Tiles Grid with Drag and Drop */}
+          {hasFiles && (
+            <div className="pdfTilesContainer">
+              <DndContext
+                sensors={sensors}
+                collisionDetection={rectIntersection}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDragOver={handleDragOver}
+              >
+                <SortableContext items={files.map(f => f.id)} strategy={rectSortingStrategy}>
+                  <div className="pdfTilesGrid">
+                    {files.map((fileItem) => (
+                      <SortablePdfTile 
+                        key={fileItem.id} 
+                        fileItem={fileItem}
+                        setSelectedPdf={setSelectedPdf}
+                        pdfThumbnails={pdfThumbnails}
+                        pdfPageCounts={pdfPageCounts}
+                        rotateById={rotateById}
+                        removeById={removeById}
+                        setTileRef={setTileRef}
+                        isDragging={isDragging}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+                <DragOverlay dropAnimation={{
+                  duration: 180,
+                  easing: 'cubic-bezier(0.2,0.8,0.2,1)'
+                }}>
+                  {activeItem ? (
+                    <div className="pdfTile draggingClone">
+                      <div className="pdfPreview"><div className="pdfPreviewInner">
+                        {pdfThumbnails[activeItem.id]
+                          ? <img className="pdfThumbnail" style={{transform:`rotate(${activeItem.rotate}deg)`}} src={pdfThumbnails[activeItem.id]} />
+                          : <div className="pdfPlaceholder">Preview</div>}
+                      </div></div>
+                      <div className="pdfName">{activeItem.file.name}</div>
+                    </div>
+                  ) : null}
+                        </DragOverlay>
+        
+        {/* Previous-position arrow overlay */}
+        {isDragging && prevArrow && (
+          <div className="prevPosArrow" style={{ left: prevArrow.x, top: prevArrow.y }} aria-hidden>
+            <span className="arrowDot"></span>
+          </div>
+        )}
+      </DndContext>
             </div>
-            <div className="sidebarCTA">
+          )}
+
+          {/* Trash Dock (fixed) */}
+          {hasFiles && showTrashDock && (
+            <div className="trashDock" ref={trashDockRef} title="Deleted files bin">
+              <Trash2 size={20} />
+            </div>
+          )}
+
+          {/* Mobile Merge Button - Always Visible */}
+          {hasFiles && (
+            <div className="mobileMergeButton">
               <button
-                className={`ctaMerge ${files.length >= 2 && !busy ? "pulseBorderGreen" : ""}`}
-                disabled={busy || files.length < 2}
+                className={`ctaMerge mobileCtaMerge ${files.length >= 2 && !busy && !isDragging ? "pulseBorderGreen" : ""}`}
+                disabled={busy || files.length < 2 || isDragging}
                 onClick={handleMerge}
               >
-                Merge PDF
+                <span>Merge PDF</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                  <polyline points="14,2 14,8 20,8"/>
+                  <polyline points="10,9 9,9 8,9"/>
+                </svg>
               </button>
             </div>
-          </aside>
-        ) : null}
-        
-                 {/* Mobile Tips Toggle Button */}
-         {hasFiles && (
-           <button
-             className="mobileTipsToggle"
-             onClick={() => {
-               const sidebar = document.querySelector('.sidebarPane');
-               const button = document.querySelector('.mobileTipsToggle');
-               if (sidebar && button) {
-                 sidebar.classList.toggle('sidebarPane--show-tips');
-                 button.classList.toggle('active');
-               }
-             }}
-             title="Toggle tips"
-             aria-label="Toggle tips"
-           >
-             👁
-           </button>
-         )}
-       </div>
- 
-       {/* Drag overlay */}
+          )}
+
+          {/* Tips Overlay */}
+          {showTips && (
+            <div className="tipsOverlay" onClick={() => setShowTips(false)}>
+              <div className="tipsCard" onClick={(e) => e.stopPropagation()}>
+                <div className="tipsHeader">
+                  <h3>💡 Quick Tips</h3>
+                  <button className="tipsClose" onClick={() => setShowTips(false)}>×</button>
+                </div>
+                <div className="tipsContent">
+                  <div className="tipItem">
+                    <strong>📁 Add Files:</strong> Click the + button or drag & drop PDFs
+                  </div>
+                  <div className="tipItem">
+                    <strong>🔄 Sort:</strong> Arrange files alphabetically A→Z or Z→A
+                  </div>
+                  <div className="tipItem">
+                    <strong>↩️ Restore:</strong> Return to original file order
+                  </div>
+                  <div className="tipItem">
+                    <strong>🔀 Merge:</strong> Combine 2+ PDFs into one file
+                  </div>
+                  <div className="tipItem">
+                    <strong>🗑️ Remove:</strong> Swipe left on files to delete
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PDF Viewer Modal */}
+          {selectedPdf && (
+            <PdfViewer selected={selectedPdf} onClose={() => setSelectedPdf(null)} />
+          )}
+        </div>
+
+        {/* Drag overlay */}
        {dropActive && (
          <div
            className="dropOverlay"
@@ -693,33 +953,7 @@ export default function Merge() {
                {/* Bin/Undo */}
         <BinOverlay count={trash.length} onUndo={restoreOne} onUndoAll={restoreAll} />
 
-        {/* PDF Viewer Modal */}
-        {pdfViewerOpen && viewingPdf && (
-          <div className="pdfViewerModal" onClick={() => setPdfViewerOpen(false)}>
-            <div className="pdfViewerContent" onClick={(e) => e.stopPropagation()}>
-              <div className="pdfViewerHeader">
-                <h3>{viewingPdf.file.name}</h3>
-                <button 
-                  className="pdfViewerClose"
-                  onClick={() => setPdfViewerOpen(false)}
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="pdfViewerBody">
-                <img 
-                  src={viewingPdf.thumb} 
-                  alt="PDF Preview" 
-                  className="pdfViewerImage"
-                />
-                <div className="pdfViewerInfo">
-                  <p><strong>Pages:</strong> {viewingPdf.pages || 'Unknown'}</p>
-                  <p><strong>Size:</strong> {(viewingPdf.file.size / 1024 / 1024).toFixed(2)} MB</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        
       </Layout>
     );
   }

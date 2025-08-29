@@ -116,7 +116,7 @@ export default function StatsAndFAQ() {
   const faqs = [
     {
       q: "How do I merge PDF files?",
-      a: "Click “Select PDF files” (or drag & drop), arrange them in the order you want, then click Merge. We’ll combine them into one PDF you can download instantly.",
+      a: "Click \"Select PDF files\" (or drag & drop), arrange them in the order you want, then click Merge. We'll combine them into one PDF you can download instantly.",
     },
     {
       q: "Is there a file size or number limit?",
@@ -147,12 +147,12 @@ export default function StatsAndFAQ() {
       a: "Yes. The tool works on modern mobile browsers. For best results, use the latest Chrome, Safari, or Edge.",
     },
     {
-      q: "Why can’t I upload my file?",
+      q: "Why can't I upload my file?",
       a: "Ensure the file is a PDF and under the size limit. If it still fails, try renaming the file or re‑saving it as a standard PDF.",
     },
     {
       q: "Where can I report an issue?",
-      a: "Please use the site’s contact link or support email. Include screenshots and steps so we can help quickly.",
+      a: "Please use the site's contact link or support email. Include screenshots and steps so we can help quickly.",
     },
   ];
 
@@ -168,15 +168,43 @@ export default function StatsAndFAQ() {
 
   return (
     <>
-      <section className="statsBlock" aria-label="Total merged PDFs">
-        <div className="counterTitle">Total merged PDFs</div>
-        <div className="counterPeel" role="status" aria-live="polite">
-          {total == null ? "…" : animatedTotal.toLocaleString()}
+             {/* Total Counter - Back at the top */}
+       <section className="totalPdfsCounter" aria-label="Total merged PDFs">
+         <div className="counterTitle">Total merged PDFs</div>
+         <div className="counterPeel" role="status" aria-live="polite">
+           {total == null ? "…" : animatedTotal.toLocaleString()}
+         </div>
+       </section>
+
+      {/* FAQs Section - Now Second */}
+      <section className="faqWrap" aria-label="Frequently Asked Questions">
+        <h2 className="faqTitle">Frequently Asked Questions</h2>
+        <div className="faqList">
+          {faqs.map(({ q, a }, i) => (
+            <details
+              key={i}
+              className="faqItem"
+              role="group"
+              aria-labelledby={`faq-${i}`}
+              onToggle={handleToggle}
+            >
+                                             <summary id={`faq-${i}`} className="faqQ" aria-expanded="false">
+                  <span className="faqQText">{q}</span>
+                  <span className="faqChevron" aria-hidden="true"></span>
+                </summary>
+              <div className="faqA" role="region" aria-hidden="true">
+                {a}
+              </div>
+            </details>
+          ))}
         </div>
       </section>
 
-      {/* Enhanced Stats Section */}
-      <section className="enhancedStats" aria-label="Performance Statistics">
+      {/* Stats Section - Now Below FAQs */}
+      <section id="stats" className="statsSection" aria-label="Performance Statistics">
+        <h2 className="statsTitle">Performance Statistics</h2>
+        
+        {/* Enhanced Stats Grid - 2x2 Layout */}
         <div className="statsGrid">
           <div className="statCard">
             <div className="statIcon">📊</div>
@@ -202,11 +230,13 @@ export default function StatsAndFAQ() {
             <div className="statLabel">Secure</div>
           </div>
         </div>
-        
-        {agg && agg.count > 0 && (
-          <div className="reviewsSection">
+      </section>
+
+      {/* User Reviews Section - Simplified and Improved */}
+      {agg && agg.count > 0 && (
+        <section className="reviewsSection" aria-label="User Reviews">
+          <div className="reviewsContainer">
             <div className="reviewsHeader">
-              <h3>User Reviews</h3>
               <div className="ratingDisplay">
                 <div className="ratingStars">
                   {[...Array(5)].map((_, i) => (
@@ -221,36 +251,19 @@ export default function StatsAndFAQ() {
                 </div>
                 <div className="ratingText">
                   <span className="ratingValue">{animatedRating.toFixed(1)}</span>
-                  <span className="ratingCount">from {agg.count} reviews</span>
+                  <span className="ratingCount">rated by {agg.count} people</span>
                 </div>
               </div>
             </div>
+            
+            <div className="reviewsSummary">
+              <p className="reviewsDescription">
+                Join thousands of satisfied users who trust our PDF merging tool for their document needs.
+              </p>
+            </div>
           </div>
-        )}
-      </section>
-
-      <section className="faqWrap" aria-label="Frequently Asked Questions">
-        <h2 className="faqTitle">Frequently Asked Questions</h2>
-        <div className="faqList">
-          {faqs.map(({ q, a }, i) => (
-            <details
-              key={i}
-              className="faqItem"
-              role="group"
-              aria-labelledby={`faq-${i}`}
-              onToggle={handleToggle}
-            >
-              <summary id={`faq-${i}`} className="faqQ" aria-expanded="false">
-                <span className="faqQText">{q}</span>
-                <span className="faqChevron" aria-hidden="true">▸</span>
-              </summary>
-              <div className="faqA" role="region" aria-hidden="true">
-                {a}
-              </div>
-            </details>
-          ))}
-        </div>
-      </section>
+        </section>
+      )}
 
       <FAQSchema faqs={faqs} agg={agg} />
     </>
