@@ -4,6 +4,7 @@ import Layout from "../components/Layout.jsx";
 import StatsAndFAQ from "../components/StatsAndFAQ.jsx";
 import Seo from "../components/Seo.jsx";
 import PdfInspectModal from "../components/PdfInspectModal.jsx";
+import { absolutizeApiUrl } from "../utils/urlUtils.js";
 import { DndContext, DragOverlay, rectIntersection, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
@@ -555,6 +556,10 @@ export default function Merge() {
           setBusy(false);
           return;
         }
+        
+        // ✅ Absolutize the download URL to prevent index.html downloads
+        const absoluteDownloadUrl = absolutizeApiUrl(url);
+        
         // Generate a unique ID for the download
         const downloadId = rid(12);
         
@@ -567,7 +572,7 @@ export default function Merge() {
         nav(`/${locale}/download/${downloadId}/${friendlyFilename}`, {
           replace: true,
           state: { 
-            downloadUrl: url, 
+            downloadUrl: absoluteDownloadUrl, 
             fileName: "Merge PDF File.pdf",
             expiresAt: expiresAt
           }

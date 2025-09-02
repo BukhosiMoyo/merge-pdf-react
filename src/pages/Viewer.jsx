@@ -5,6 +5,7 @@ import Layout from "../components/Layout.jsx";
 import PdfModal from "../components/PdfModal.jsx";
 import Seo from "../components/Seo.jsx";
 import { useLocale } from "../state/LocaleContext.jsx";
+import { absolutizeApiUrl } from "../utils/urlUtils.js";
 import { FileText as IcFile, RotateCcw as IcRotate } from "lucide-react";
 
 // Constant friendly filename
@@ -17,7 +18,8 @@ export default function Viewer() {
   const { locale } = useLocale();
   
   // Get fileUrl from navigation state, localStorage, or fallback to query params for backward compatibility
-  const fileUrl = location.state?.downloadUrl || 
+  // ✅ Ensure fileUrl is always absolute to prevent index.html downloads
+  const rawFileUrl = location.state?.downloadUrl || 
     (() => {
       try {
         const stored = localStorage.getItem(`viewer_${id}`);
@@ -28,6 +30,7 @@ export default function Viewer() {
     })() || 
     new URLSearchParams(location.search).get("url") || "";
   
+  const fileUrl = absolutizeApiUrl(rawFileUrl);
   const fileName = FRIENDLY_FILENAME; // Always use friendly filename
 
   const [theme, setTheme] = useState(
@@ -70,6 +73,17 @@ export default function Viewer() {
           window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
         
+        // ✅ Check content-type before loading with PDF.js
+        const headResponse = await fetch(fileUrl, { method: "HEAD" });
+        if (headResponse.ok) {
+          const contentType = headResponse.headers.get("content-type") || "";
+          if (contentType.includes("text/html")) {
+            setError("This link has expired. Files are deleted after 1 hour.");
+            setLoading(false);
+            return;
+          }
+        }
+
         // Load PDF using PDF.js with better error handling
         const pdf = await window.pdfjsLib.getDocument({ 
           url: fileUrl, 

@@ -7,6 +7,7 @@ import ConfettiLayer from "../components/ConfettiLayer.jsx";
 import Seo from "../components/Seo.jsx";
 import { useLocale } from "../state/LocaleContext.jsx";
 import StatsAndFAQ from "../components/StatsAndFAQ.jsx";
+import { absolutizeApiUrl } from "../utils/urlUtils.js";
 import {
   Download as IcDownload,
   FileText as IcDoc,
@@ -127,7 +128,9 @@ export default function Download() {
   const navigate = useNavigate();
   
   // Get download URL from navigation state or fallback to query params for backward compatibility
-  const downloadUrl = location.state?.downloadUrl || new URLSearchParams(location.search).get("url") || "";
+  // ✅ Ensure download URL is always absolute to prevent index.html downloads
+  const rawDownloadUrl = location.state?.downloadUrl || new URLSearchParams(location.search).get("url") || "";
+  const downloadUrl = absolutizeApiUrl(rawDownloadUrl);
   const fileName = FRIENDLY_FILENAME; // Always use friendly filename
   const expiresAt = location.state?.expiresAt || null;
 
@@ -170,6 +173,14 @@ export default function Download() {
         // Try HEAD request first to get file size
         const r = await fetch(downloadUrl, { method: "HEAD" });
         if (alive && r.ok) {
+          // ✅ Check content-type to prevent HTML downloads
+          const contentType = r.headers.get("content-type") || "";
+          if (contentType.includes("text/html")) {
+            console.warn("Received HTML instead of PDF, marking as expired");
+            setIsExpired(true);
+            return;
+          }
+          
           const len = r.headers.get("content-length");
           if (len) setFileSize(Number(len));
           
@@ -211,6 +222,17 @@ export default function Download() {
             document.head.appendChild(script);
           });
           window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+
+        // ✅ Check content-type before loading with PDF.js
+        const headResponse = await fetch(downloadUrl, { method: "HEAD" });
+        if (headResponse.ok) {
+          const contentType = headResponse.headers.get("content-type") || "";
+          if (contentType.includes("text/html")) {
+            console.warn("Received HTML instead of PDF, marking as expired");
+            setIsExpired(true);
+            return;
+          }
         }
 
         // Get page count from PDF with better error handling
@@ -299,7 +321,8 @@ export default function Download() {
   }
 
   async function handleCopyLink() {
-    const shareUrl = `${window.location.origin}/${locale}/download/${id}/${encodeURIComponent(fileName)}`;
+    // ✅ Use absolute download URL instead of frontend route
+    const shareUrl = downloadUrl;
     try {
       await navigator.clipboard.writeText(shareUrl);
       setShowCopiedToast(true);
