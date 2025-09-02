@@ -22,12 +22,20 @@ export default function RatingDialog({
   const [hover, setHover] = useState(0);
   const [busy, setBusy] = useState(false);
 
-  // Close with ESC
+  // Close with ESC and lock body scroll
   useEffect(() => {
     if (!open) return;
+    
+    // Lock body scroll
+    document.body.style.overflow = 'hidden';
+    
     const onKey = (e) => e.key === "Escape" && onClose?.();
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = '';
+    };
   }, [open, onClose]);
 
   // Focus trap for accessibility
@@ -141,17 +149,7 @@ export default function RatingDialog({
           disabled={!rating || busy}
           type="button"
         >
-          {busy ? "Submitting…" : "Submit rating"}
-        </button>
-        
-        {/* Dismiss button */}
-        <button
-          className="nextAction"
-          onClick={onClose}
-          type="button"
-          style={{ marginTop: '16px', width: '100%' }}
-        >
-          Not now
+          {busy ? "Submitting…" : "Submit review"}
         </button>
       </div>
     </div>

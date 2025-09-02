@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout.jsx";
 import RatingDialog from "../components/RatingDialog.jsx";
+import ConfettiLayer from "../components/ConfettiLayer.jsx";
+import Seo from "../components/Seo.jsx";
 import { useLocale } from "../state/LocaleContext.jsx";
 import StatsAndFAQ from "../components/StatsAndFAQ.jsx";
 import {
@@ -54,8 +56,9 @@ const STRINGS = {
     ready: "Your file is ready",
     merged: "We merged your PDFs into a single document.",
     download: "Download",
+    downloadMerged: "Download Merged PDF",
     viewPdf: "View PDF",
-    matchAgain: "Match again",
+    matchAgain: "Merge again",
     copyLink: "Copy link",
     linkCopied: "Link copied",
     expiresIn: "Link expires in",
@@ -69,6 +72,7 @@ const STRINGS = {
     ready: "Jou lêer is gereed",
     merged: "Ons het jou PDF's in een dokument saamgevoeg.",
     download: "Laai af",
+    downloadMerged: "Laai Saamgevoegde PDF af",
     viewPdf: "Bekyk PDF",
     matchAgain: "Voeg weer saam",
     copyLink: "Kopieer skakel",
@@ -84,6 +88,7 @@ const STRINGS = {
     ready: "Ifayela lakho selilungile",
     merged: "Sihlanganise ama-PDF akho abe yidokhumenti eyodwa.",
     download: "Landa",
+    downloadMerged: "Landa i-PDF Ehlanganisiwe",
     viewPdf: "Buka i-PDF",
     matchAgain: "Hlanganisa futhi",
     copyLink: "Kopisha isixhumanisi",
@@ -99,6 +104,7 @@ const STRINGS = {
     ready: "Ifayile yakho ilungile",
     merged: "Sidibanise ii-PDF zakho zaba luxwebhu olunye.",
     download: "Khuphela",
+    downloadMerged: "Khuphela i-PDF Edityanisiweyo",
     viewPdf: "Jonga i-PDF",
     matchAgain: "Dibanisa kwakhona",
     copyLink: "Kopa ikhonkco",
@@ -112,14 +118,17 @@ const STRINGS = {
   },
 };
 
+// Constant friendly filename
+const FRIENDLY_FILENAME = "Merge PDF File.pdf";
+
 export default function Download() {
-  const { id, name } = useParams();
+  const { id } = useParams(); // Only use id, ignore name parameter
   const location = useLocation();
   const navigate = useNavigate();
   
   // Get download URL from navigation state or fallback to query params for backward compatibility
   const downloadUrl = location.state?.downloadUrl || new URLSearchParams(location.search).get("url") || "";
-  const fileName = location.state?.fileName || decodeURIComponent(name || "merged.pdf");
+  const fileName = FRIENDLY_FILENAME; // Always use friendly filename
   const expiresAt = location.state?.expiresAt || null;
 
   const { locale, setLocale } = useLocale();
@@ -203,17 +212,64 @@ export default function Download() {
     return () => { alive = false; };
   }, [downloadUrl, id, expiresAt, isExpired]);
 
-  // Focus download button on mount
+  // Load PDF.js and get page count if not already available
+  useEffect(() => {
+    if (!downloadUrl || isExpired || pageCount !== null) return;
+    
+    let alive = true;
+    (async () => {
+      try {
+        // Load PDF.js if not already present
+        if (!window.pdfjsLib) {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          await new Promise((resolve, reject) => {
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+
+        // Get page count from PDF
+        const pdf = await window.pdfjsLib.getDocument({ 
+          url: downloadUrl, 
+          withCredentials: true 
+        }).promise;
+        
+        if (alive) {
+          setPageCount(pdf.numPages);
+        }
+      } catch (error) {
+        console.warn('Failed to load PDF for page count:', error);
+        // Don't break the UI if PDF loading fails
+      }
+    })();
+    return () => { alive = false; };
+  }, [downloadUrl, isExpired, pageCount]);
+
+  // Focus download button on mount and trigger confetti
   useEffect(() => {
     dlRef.current?.focus();
-  }, []);
-
-  // Set page title for SEO
-  useEffect(() => {
-    if (fileName) {
-      document.title = `Download ${fileName} - Merge PDF`;
+    
+    // Trigger confetti celebration for successful merge
+    if (downloadUrl && !isExpired) {
+      // Check if user has disabled celebrations
+      const celebrationsDisabled = localStorage.getItem('celebrations') === 'off';
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      
+      if (!celebrationsDisabled && !prefersReducedMotion) {
+        // Trigger confetti after a short delay
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('celebrate', { 
+            detail: { intensity: 'big' } 
+          }));
+        }, 500);
+      }
     }
-  }, [fileName]);
+  }, [downloadUrl, isExpired]);
+
+
 
   // Show rating modal once per day
   useEffect(() => {
@@ -233,23 +289,15 @@ export default function Download() {
   }
 
   function handleViewPdf() {
-    const viewUrl = `/${locale}/view/${id}/${encodeURIComponent(fileName)}`;
-    // Open viewer in new tab with download URL in state
-    const newWindow = window.open(viewUrl, '_blank');
-    if (newWindow) {
-      // Pass the download URL via localStorage as a fallback
-      const viewerData = {
+    const viewUrl = `/${locale}/view/${id}/merge-pdf-file.pdf`;
+    // Navigate to viewer with download URL in state
+    navigate(viewUrl, {
+      state: {
         downloadUrl: downloadUrl,
         fileName: fileName,
         expiresAt: expiresAt
-      };
-      localStorage.setItem(`viewer_${id}`, JSON.stringify(viewerData));
-      
-      // Clean up after 5 minutes
-      setTimeout(() => {
-        localStorage.removeItem(`viewer_${id}`);
-      }, 5 * 60 * 1000);
-    }
+      }
+    });
   }
 
   function handleDownload() {
@@ -346,14 +394,21 @@ export default function Download() {
   }
 
   return (
-    <Layout
-      headerProps={{
-        theme,
-        onToggleTheme: toggleTheme,
-        locale,
-        setLocale,
-      }}
-    >
+    <>
+      <Seo 
+        title="Download Merged PDF — Free PDF Merger (South Africa)"
+        description="Your merged PDF is ready. Download securely and share a link that expires automatically."
+        canonicalPath={`/${locale}/download`}
+        noindex={true}
+      />
+      <Layout
+        headerProps={{
+          theme,
+          onToggleTheme: toggleTheme,
+          locale,
+          setLocale,
+        }}
+      >
       {/* Download success UI */}
       <div className="downloadShell">
         <div className="downloadCard">
@@ -368,36 +423,35 @@ export default function Download() {
           {/* Subtext */}
           <p className="downloadSubtext">{t.merged}</p>
           
-          {/* File info pill */}
-          <div className="fileInfoPill">
-            <span className="fileType">{t.type}</span>
-            <span className="pillSeparator">•</span>
-            <span className="fileSize">{fmtBytes(fileSize)}</span>
-            <span className="pillSeparator">•</span>
-            <span className="pageCount">{fmtPages(pageCount)}</span>
+          {/* File info and download button container */}
+          <div className="downloadContentContainer">
+            {/* File info pill */}
+            <div className="fileInfoPill">
+              <span className="fileType">{t.type}</span>
+              <span className="pillSeparator">•</span>
+              <span className="fileSize">{fmtBytes(fileSize)}</span>
+              <span className="pillSeparator">•</span>
+              <span className="pageCount">{fmtPages(pageCount)}</span>
+            </div>
+            
+            {/* Primary download button */}
+            <a 
+              ref={dlRef} 
+              href={downloadUrl} 
+              className="downloadButton" 
+              download={fileName}
+              title={fileName}
+            >
+              <IcDownload size={20} />
+              <span>{t.downloadMerged}</span>
+            </a>
           </div>
-          
-          {/* Primary download button */}
-          <a 
-            ref={dlRef} 
-            href={downloadUrl} 
-            className="downloadButton" 
-            download={fileName}
-            title={fileName}
-          >
-            <IcDownload size={20} />
-            <span>{t.download} {displayName}</span>
-          </a>
           
           {/* Quick Actions */}
           <div className="quickActions">
             <button className="quickAction" onClick={handleViewPdf}>
               <IcEye size={16} />
               <span>{t.viewPdf}</span>
-            </button>
-            <button className="quickAction" onClick={handleDownload}>
-              <IcDownload size={16} />
-              <span>{t.download}</span>
             </button>
             <button className="quickAction" onClick={handleMatchAgain}>
               <IcRotate size={16} />
@@ -434,9 +488,13 @@ export default function Download() {
       {showCopiedToast && (
         <div className="copyToast" role="status" aria-live="polite">
           <IcCheck size={16} />
-          <span>{t.linkCopied} (expires in 1 hour)</span>
+          <span>{t.linkCopied}. It expires in ~{formatTimeRemaining(expiresAt) || '1 hour'}.</span>
         </div>
       )}
-    </Layout>
+
+      {/* Confetti Layer */}
+      <ConfettiLayer />
+      </Layout>
+    </>
   );
 }

@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout.jsx";
 import StatsAndFAQ from "../components/StatsAndFAQ.jsx";
-import { DndContext, DragOverlay, rectIntersection, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import Seo from "../components/Seo.jsx";
+import PdfInspectModal from "../components/PdfInspectModal.jsx";
+import { DndContext, DragOverlay, rectIntersection, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -36,6 +38,13 @@ function formatBytes(bytes){
   if (bytes < 1024 * 1024) return `${(bytes/1024).toFixed(2)} KB`;
   return `${(bytes/1024/1024).toFixed(2)} MB`;
 }
+
+function formatFileSize(bytes){
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes/1024).toFixed(2)} KB`;
+  return `${(bytes/1024/1024).toFixed(2)} MB`;
+}
+
 function pluralize(n, word){ return `${n} ${word}${n===1?'':'s'}`; }
 
 // Helper function to open PDF for multi-page viewer
@@ -49,6 +58,8 @@ async function openPdfForViewer(file) {
     return null;
   }
 }
+
+
 
 
 
@@ -169,82 +180,7 @@ function SortablePdfTile({ fileItem, setSelectedPdf, pdfThumbnails, pdfPageCount
   );
 }
 
-/* ---------- Multi-Page PDF Viewer Component ---------- */
-function PdfViewer({ selected, onClose }) {
-  const containerRef = useRef(null);
-  const [pages, setPages] = useState([]); // {index, canvas} list
-  const pdfRef = useRef(null);
 
-  // Lock body scroll while modal is open
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!selected) return;
-      const pdf = await openPdfForViewer(selected.file);
-      if (!mounted) return;
-      pdfRef.current = pdf;
-      const total = pdf.numPages;
-      setPages(Array.from({ length: total }, (_, i) => ({ index: i+1, ready: false })));
-    })();
-    return () => { mounted = false; };
-  }, [selected]);
-
-  useEffect(() => {
-    if (!containerRef.current || !pdfRef.current) return;
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach(async (e) => {
-        if (!e.isIntersecting) return;
-        const index = Number(e.target.dataset.index);
-        const page = await pdfRef.current.getPage(index);
-        const scale = 1.2;
-        const viewport = page.getViewport({ scale });
-        const canvas = e.target.querySelector('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = viewport.width; canvas.height = viewport.height;
-        await page.render({ canvasContext: ctx, viewport }).promise;
-        e.target.dataset.rendered = '1';
-      });
-    }, { root: containerRef.current, threshold: 0.1 });
-
-    const nodes = containerRef.current.querySelectorAll('.viewerPage');
-    nodes.forEach(n => io.observe(n));
-    return () => io.disconnect();
-  }, [pages]);
-
-  if (!selected) return null;
-
-  return (
-    <div className="pdfViewerOverlay" onClick={onClose}>
-      <div className="pdfViewerModal" onClick={(e) => e.stopPropagation()}>
-        <div className="pdfViewerHeader">
-          <h3>{selected.file.name}</h3>
-          <button className="pdfViewerClose" onClick={onClose}>×</button>
-        </div>
-        <div className="pdfViewerContent" ref={containerRef}>
-          {pages.map(p => (
-            <div key={p.index} className="viewerPage" data-index={p.index}
-                 style={{ margin: '0 auto 16px', maxWidth: '980px' }}>
-              <canvas />
-            </div>
-          ))}
-        </div>
-        <div className="pdfViewerFooter">
-          <div className="pdfViewerInfo">
-            <span><strong>Size:</strong> {(selected.file.size/1024/1024).toFixed(2)} MB</span>
-            <span><strong>Pages:</strong> {pages.length || '…'}</span>
-            <span><strong>Rotation:</strong> {selected.rotate}°</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ---------- Bin/Undo ---------- */
 function BinOverlay({ count, onUndo, onUndoAll }) {
@@ -280,8 +216,9 @@ export default function Merge() {
   const [activeId, setActiveId] = useState(null);       // For DnD placeholder
   const [activeItem, setActiveItem] = useState(null);   // For DragOverlay preview
   const [isDragging, setIsDragging] = useState(false);
-  const [prevArrow, setPrevArrow] = useState(null);    // {x,y,w,h} from getBoundingClientRect
+
   const [showTrashDock, setShowTrashDock] = useState(false);
+
 
   const inputRef = useRef(null);
   const canvasRef = useRef(null);
@@ -295,11 +232,12 @@ export default function Merge() {
 
   const trashDockRef = useRef(null);
 
-  // Drag and Drop sensors
+  // Drag and Drop sensors - improved for mobile
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 8, // Small distance threshold for reliable activation
+        delay: 250, // Small delay for mobile to prevent accidental drags
       },
     }),
     useSensor(KeyboardSensor, {
@@ -309,20 +247,8 @@ export default function Merge() {
 
   console.log('Sensors configured:', sensors);
 
-  // meta
+  // Load PDF.js for thumbnail generation
   useEffect(() => {
-    document.title = "Merge PDF files";
-    const m =
-      document.querySelector('meta[name="description"]') ||
-      (() => {
-        const x = document.createElement("meta");
-        x.name = "description";
-        document.head.appendChild(x);
-        return x;
-      })();
-    m.content = "Combine PDFs in the order you want. Drag & drop or click the big button.";
-    
-    // Load PDF.js for thumbnail generation
     if (!window.pdfjsLib) {
       const script = document.createElement('script');
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
@@ -438,6 +364,8 @@ export default function Merge() {
 
   // dropzone
   function onDragOver(e) {
+    // Only activate if files are being dragged
+    if (!Array.from(e.dataTransfer?.types || []).includes('Files')) return;
     e.preventDefault();
     setDropActive(true);
   }
@@ -447,7 +375,11 @@ export default function Merge() {
   function onDrop(e) {
     e.preventDefault();
     setDropActive(false);
-    if (e.dataTransfer?.files?.length) acceptFiles(e.dataTransfer.files);
+    if (e.dataTransfer?.files?.length) {
+      acceptFiles(e.dataTransfer.files);
+      // Force dropActive to false as final safety
+      setDropActive(false);
+    }
   }
 
 
@@ -555,6 +487,12 @@ export default function Merge() {
       return;
     }
     setBusy(true);
+    
+    // Safety timeout to prevent stuck busy state
+    const safetyTimeout = setTimeout(() => {
+      console.log('Safety timeout: resetting busy state');
+      setBusy(false);
+    }, 30000); // 30 seconds timeout
 
     const fd = new FormData();
     files.forEach(({ file }) => fd.append("files[]", file, file.name));
@@ -583,6 +521,7 @@ export default function Merge() {
     };
 
     xhr.onerror = () => {
+      clearTimeout(safetyTimeout);
       alert("Network error while contacting the merge API.");
       setBusy(false);
     };
@@ -599,27 +538,27 @@ export default function Merge() {
         } catch {}
       }
       if (status >= 200 && status < 300) {
+        clearTimeout(safetyTimeout);
         const url = data?.output?.download_url;
         if (!url) {
           alert("Server did not include a download URL.");
           setBusy(false);
           return;
         }
-        const n = parseInt(localStorage.getItem("merged_counter") || "0", 10) + 1;
-        localStorage.setItem("merged_counter", String(n));
-        const name = `merged-${n}.pdf`;
-        
         // Generate a unique ID for the download
         const downloadId = rid(12);
         
         // Calculate expiry time (1 hour from now)
         const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
         
-        nav(`/${locale}/download/${downloadId}/${encodeURIComponent(name)}`, {
+        // Use friendly filename for URL and download
+        const friendlyFilename = "merge-pdf-file.pdf";
+        
+        nav(`/${locale}/download/${downloadId}/${friendlyFilename}`, {
           replace: true,
           state: { 
             downloadUrl: url, 
-            fileName: name,
+            fileName: "Merge PDF File.pdf",
             expiresAt: expiresAt
           }
         });
@@ -632,6 +571,7 @@ export default function Merge() {
       if (status === 413) msg += " (413 Payload Too Large — server upload limit too low)";
       if (status === 415) msg += " (415 Unsupported Media Type — multipart/form-data issue)";
       if (status === 422) msg += " (422 — fewer than 2 PDFs or invalid files)";
+      clearTimeout(safetyTimeout);
       alert(msg);
       setBusy(false);
     };
@@ -651,16 +591,11 @@ export default function Merge() {
     setActiveId(id);
     setActiveItem(files.find(f => f.id === id) || null);
     setIsDragging(true);
-    // compute previous slot position for arrow
-    const el = tileRefs.current.get(id);
-    if (el) {
-      const r = el.getBoundingClientRect();
-      setPrevArrow({ x: r.left + r.width/2, y: r.top - 8 }); // arrow above the tile
-    }
   }
 
   function handleDragOver(event) {
-    console.log('Drag over:', event);
+    // Let dnd-kit handle the spacing naturally
+    // No manual placeholder logic needed
   }
 
   function handleDragEnd(event) {
@@ -668,8 +603,9 @@ export default function Merge() {
     setActiveId(null);
     setActiveItem(null);
     setIsDragging(false);
-    setPrevArrow(null);
+    
     if (!over || active.id === over.id) return;
+    
     setFiles((items) => {
       const oldIndex = items.findIndex((it) => it.id === active.id);
       const newIndex = items.findIndex((it) => it.id === over.id);
@@ -681,17 +617,24 @@ export default function Merge() {
   // ... existing code ...
 
   return (
-    <Layout
-      headerProps={{
-        theme,
-        onToggleTheme: toggleTheme,
-        locale,
-        setLocale,
-        hideStats: hasFiles, // Hide Stats button when files are present (step 2)
-      }}
-    >
+    <>
+      <Seo 
+        title="Merge PDF Online (Free, Secure) — South Africa"
+        description="Combine multiple PDFs into one fast, secure file. Free PDF merger for South Africa. No signup, mobile friendly, privacy-first."
+        canonicalPath={`/${locale}`}
+      />
+      <Layout
+        headerProps={{
+          theme,
+          onToggleTheme: toggleTheme,
+          locale,
+          setLocale,
+          hideStats: hasFiles, // Hide Stats button when files are present (step 2)
+        }}
+        hideFooter={hasFiles} // Hide footer when files are present (PDF editing step)
+      >
       <div
-        className={`appShell ${!hasFiles ? "appShell--no-sidebar" : ""}`}
+        className={`appShell ${!hasFiles ? "appShell--no-sidebar" : ""} ${isDragging ? "dragging" : ""}`}
         style={{ height: "var(--app-height, auto)" }}
       >
 
@@ -756,7 +699,6 @@ export default function Merge() {
                     className="fabButton fabAdd" 
                     onClick={() => inputRef.current?.click()}
                     style={{ color: 'white' }}
-                    aria-disabled={isDragging}
                   >
                     <Plus size={22} style={{ color: 'white', opacity: 1, visibility: 'visible' }} />
                   </button>
@@ -773,7 +715,6 @@ export default function Merge() {
                     className="fabButton fabSort" 
                     onClick={toggleSort}
                     style={{ color: 'white' }}
-                    aria-disabled={isDragging}
                   >
                     <ArrowUpDown size={22} style={{ color: 'white', opacity: 1, visibility: 'visible' }} />
                   </button>
@@ -786,7 +727,6 @@ export default function Merge() {
                     className="fabButton fabRestore" 
                     onClick={restoreOriginal}
                     style={{ color: 'white' }}
-                    aria-disabled={isDragging}
                   >
                     <RotateCcw size={22} style={{ color: 'white', opacity: 1, visibility: 'visible' }} />
                   </button>
@@ -799,7 +739,6 @@ export default function Merge() {
                     className="fabButton fabInfo" 
                     onClick={() => setShowTips(!showTips)}
                     style={{ color: 'white' }}
-                    aria-disabled={isDragging}
                   >
                     <span className="fabIcon" style={{ color: 'white', opacity: 1, visibility: 'visible', fontSize: '22px', fontWeight: 'bold' }}>i</span>
                   </button>
@@ -808,21 +747,24 @@ export default function Merge() {
               </div>
             )}
 
+          {/* Spacer to push tiles below fixed action buttons */}
+          {hasFiles && <div className="actionsSpacer" aria-hidden />}
+
           {/* PDF Tiles Grid with Drag and Drop */}
           {hasFiles && (
             <div className="pdfTilesContainer">
               <DndContext
                 sensors={sensors}
-                collisionDetection={rectIntersection}
+                collisionDetection={closestCenter}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
                 onDragOver={handleDragOver}
               >
                 <SortableContext items={files.map(f => f.id)} strategy={rectSortingStrategy}>
                   <div className="pdfTilesGrid">
-                    {files.map((fileItem) => (
-                      <SortablePdfTile 
-                        key={fileItem.id} 
+                    {files.map((fileItem, index) => (
+                      <SortablePdfTile
+                        key={fileItem.id}
                         fileItem={fileItem}
                         setSelectedPdf={setSelectedPdf}
                         pdfThumbnails={pdfThumbnails}
@@ -830,9 +772,10 @@ export default function Merge() {
                         rotateById={rotateById}
                         removeById={removeById}
                         setTileRef={setTileRef}
-                        isDragging={isDragging}
+                        isDragging={isDragging && activeId === fileItem.id} // Show dragging state for the active tile
                       />
                     ))}
+                    
                   </div>
                 </SortableContext>
                 <DragOverlay dropAnimation={{
@@ -846,20 +789,17 @@ export default function Merge() {
                           ? <img className="pdfThumbnail" style={{transform:`rotate(${activeItem.rotate}deg)`}} src={pdfThumbnails[activeItem.id]} />
                           : <div className="pdfPlaceholder">Preview</div>}
                       </div></div>
-                      <div className="pdfName">{activeItem.file.name}</div>
+                      {/* Hide filename in drag clone for cleaner look */}
                     </div>
                   ) : null}
-                        </DragOverlay>
+                </DragOverlay>
         
-        {/* Previous-position arrow overlay */}
-        {isDragging && prevArrow && (
-          <div className="prevPosArrow" style={{ left: prevArrow.x, top: prevArrow.y }} aria-hidden>
-            <span className="arrowDot"></span>
-          </div>
-        )}
+
       </DndContext>
             </div>
           )}
+
+
 
           {/* Trash Dock (fixed) */}
           {hasFiles && showTrashDock && (
@@ -872,8 +812,8 @@ export default function Merge() {
           {hasFiles && (
             <div className="mobileMergeButton">
               <button
-                className={`ctaMerge mobileCtaMerge ${files.length >= 2 && !busy && !isDragging ? "pulseBorderGreen" : ""}`}
-                disabled={busy || files.length < 2 || isDragging}
+                className={`ctaMerge mobileCtaMerge ${files.length >= 2 && !busy ? "pulseBorderGreen" : ""}`}
+                disabled={busy || files.length < 2}
                 onClick={handleMerge}
               >
                 <span>Merge PDF</span>
@@ -915,9 +855,65 @@ export default function Merge() {
             </div>
           )}
 
-          {/* PDF Viewer Modal */}
+          {/* PDF Inspect Modal */}
           {selectedPdf && (
-            <PdfViewer selected={selectedPdf} onClose={() => setSelectedPdf(null)} />
+            <PdfInspectModal 
+              fileItem={selectedPdf}
+              onClose={() => setSelectedPdf(null)}
+              rotateById={rotateById}
+              removeById={removeById}
+              pageCount={pdfPageCounts[selectedPdf.id]}
+              sizeLabel={formatBytes(selectedPdf.file.size)}
+            />
+          )}
+
+          {/* Drag overlay */}
+          {dropActive && (
+            <div
+              className="dropOverlay"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={onDrop}
+              onDragLeave={() => setDropActive(false)}
+            >
+              <div className="dropOverlayInner">
+                <div className="bigCatch">Drop it like it's smart 🧠</div>
+                <div className="smallCatch">Release to add your PDFs</div>
+              </div>
+            </div>
+          )}
+
+          {/* Merge progress */}
+          {busy && (
+            <div className="loadingOverlay">
+              <div className="loadingCard">
+                <div className="ring">
+                  <div className="ringInner" style={{ "--pct": `${progress.pct || 0}%` }} />
+                  <div className="ringText">{progress.pct || 0}%</div>
+                </div>
+                <div className="mergeMsg">Merging PDFs…</div>
+                <div className="mergeSpeed">{progress.speed}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Bin/Undo */}
+          <BinOverlay count={trash.length} onUndo={restoreOne} onUndoAll={restoreAll} />
+          
+          {/* Debug: Reset busy state (only in development) */}
+          {import.meta.env.DEV && busy && (
+            <div style={{
+              position: 'fixed',
+              top: '10px',
+              right: '10px',
+              zIndex: 999999,
+              background: 'red',
+              color: 'white',
+              padding: '10px',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }} onClick={() => setBusy(false)}>
+              Reset Busy State (Debug)
+            </div>
           )}
         </div>
 
@@ -950,13 +946,31 @@ export default function Merge() {
          </div>
        )}
  
-               {/* Bin/Undo */}
-        <BinOverlay count={trash.length} onUndo={restoreOne} onUndoAll={restoreAll} />
+                         {/* Bin/Undo */}
+          <BinOverlay count={trash.length} onUndo={restoreOne} onUndoAll={restoreAll} />
+          
+          {/* Debug: Reset busy state (only in development) */}
+          {import.meta.env.DEV && busy && (
+            <div style={{
+              position: 'fixed',
+              top: '10px',
+              right: '10px',
+              zIndex: 999999,
+              background: 'red',
+              color: 'white',
+              padding: '10px',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }} onClick={() => setBusy(false)}>
+              Reset Busy State (Debug)
+            </div>
+          )}
 
         
       </Layout>
-    );
-  }
+    </>
+  );
+}
 
 /* util */
 function rid(n = 8) {

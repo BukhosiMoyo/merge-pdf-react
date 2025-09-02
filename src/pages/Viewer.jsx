@@ -1,17 +1,23 @@
 // src/pages/Viewer.jsx
 import { useEffect, useState } from "react";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout.jsx";
+import PdfModal from "../components/PdfModal.jsx";
+import Seo from "../components/Seo.jsx";
 import { useLocale } from "../state/LocaleContext.jsx";
-import { FileText as IcFile, Download as IcDownload, RotateCcw as IcRotate } from "lucide-react";
+import { FileText as IcFile, RotateCcw as IcRotate } from "lucide-react";
+
+// Constant friendly filename
+const FRIENDLY_FILENAME = "Merge PDF File.pdf";
 
 export default function Viewer() {
-  const { id, name } = useParams();
+  const { id } = useParams(); // Only use id, ignore name parameter
   const location = useLocation();
+  const navigate = useNavigate();
   const { locale } = useLocale();
   
-  // Get download URL from navigation state, localStorage, or fallback to query params for backward compatibility
-  const downloadUrl = location.state?.downloadUrl || 
+  // Get fileUrl from navigation state, localStorage, or fallback to query params for backward compatibility
+  const fileUrl = location.state?.downloadUrl || 
     (() => {
       try {
         const stored = localStorage.getItem(`viewer_${id}`);
@@ -22,25 +28,15 @@ export default function Viewer() {
     })() || 
     new URLSearchParams(location.search).get("url") || "";
   
-  const fileName = location.state?.fileName || 
-    (() => {
-      try {
-        const stored = localStorage.getItem(`viewer_${id}`);
-        return stored ? JSON.parse(stored).fileName : decodeURIComponent(name || "merged.pdf");
-      } catch {
-        return decodeURIComponent(name || "merged.pdf");
-      }
-    })() || 
-    decodeURIComponent(name || "merged.pdf");
+  const fileName = FRIENDLY_FILENAME; // Always use friendly filename
 
   const [theme, setTheme] = useState(
     () => document.documentElement.getAttribute("data-theme") || "light"
   );
   const [pdfDocument, setPdfDocument] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
   const toggleTheme = () => {
     const next = theme === "light" ? "dark" : "light";
@@ -51,7 +47,7 @@ export default function Viewer() {
 
   // Load PDF document
   useEffect(() => {
-    if (!downloadUrl) {
+    if (!fileUrl) {
       setError("No PDF URL provided");
       setLoading(false);
       return;
@@ -62,11 +58,26 @@ export default function Viewer() {
         setLoading(true);
         setError(null);
         
+        // Load PDF.js if not already present
+        if (!window.pdfjsLib) {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          await new Promise((resolve, reject) => {
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+        
         // Load PDF using PDF.js
-        const pdf = await window.pdfjsLib.getDocument(downloadUrl).promise;
+        const pdf = await window.pdfjsLib.getDocument({ 
+          url: fileUrl, 
+          withCredentials: true 
+        }).promise;
+        
         setPdfDocument(pdf);
-        setTotalPages(pdf.numPages);
-        setCurrentPage(1);
+        setShowModal(true);
       } catch (err) {
         console.error("Error loading PDF:", err);
         setError("Failed to load PDF. The file may have expired or been removed.");
@@ -76,69 +87,65 @@ export default function Viewer() {
     }
 
     loadPDF();
-  }, [downloadUrl]);
+  }, [fileUrl]);
 
-  // Render current page
-  useEffect(() => {
-    if (!pdfDocument || !currentPage) return;
 
-    async function renderPage() {
-      try {
-        const page = await pdfDocument.getPage(currentPage);
-        const canvas = document.getElementById('pdf-canvas');
-        if (!canvas) return;
 
-        const viewport = page.getViewport({ scale: 1.5 });
-        const context = canvas.getContext('2d');
-        
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        const renderContext = {
-          canvasContext: context,
-          viewport: viewport
-        };
-
-        await page.render(renderContext).promise;
-      } catch (err) {
-        console.error("Error rendering page:", err);
-      }
-    }
-
-    renderPage();
-  }, [pdfDocument, currentPage]);
-
-  // Set page title
-  useEffect(() => {
-    if (fileName) {
-      document.title = `View ${fileName} - Merge PDF`;
-    }
-  }, [fileName]);
-
-  function handleDownload() {
-    if (downloadUrl) {
-      window.open(downloadUrl, '_blank');
-    }
+  function handleCloseModal() {
+    setShowModal(false);
+    // Navigate back to the previous page or merge page
+    navigate(`/${locale}`);
   }
 
-  function handleMergeAgain() {
-    window.open(`/${locale}`, '_blank');
-  }
-
-  function handlePreviousPage() {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  }
-
-  function handleNextPage() {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
+  function handleStartNewMerge() {
+    navigate(`/${locale}`);
   }
 
   if (error) {
     return (
+      <>
+        <Seo 
+          title="Preview Merged PDF — Free PDF Tools (South Africa)"
+          description="Preview your merged PDF in your browser. Download or start a new merge — fast, private, and free in South Africa."
+          canonicalPath={`/${locale}/view`}
+          noindex={true}
+        />
+        <Layout
+          headerProps={{
+            theme,
+            onToggleTheme: toggleTheme,
+            locale,
+            setLocale: () => {},
+          }}
+        >
+        <div className="viewerShell">
+          <div className="viewerCard">
+            <div className="viewerIcon">
+              <IcFile size={32} />
+            </div>
+            <h2 className="viewerTitle">This link has expired</h2>
+            <p className="viewerSubtext">Files are deleted after 1 hour. Ask the sender to re-share.</p>
+            <div className="viewerActions">
+              <button className="viewerAction primary" onClick={handleStartNewMerge}>
+                <IcRotate size={16} />
+                <span>Start new merge</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        </Layout>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Seo 
+        title="Preview Merged PDF — Free PDF Tools (South Africa)"
+        description="Preview your merged PDF in your browser. Download or start a new merge — fast, private, and free in South Africa."
+        canonicalPath={`/${locale}/view`}
+        noindex={true}
+      />
       <Layout
         headerProps={{
           theme,
@@ -147,87 +154,24 @@ export default function Viewer() {
           setLocale: () => {},
         }}
       >
-        <div className="viewerShell">
-          <div className="viewerCard">
-            <div className="viewerIcon">
-              <IcFile size={32} />
-            </div>
-            <h2 className="viewerTitle">PDF could not be loaded</h2>
-            <p className="viewerSubtext">{error}</p>
-            <div className="viewerActions">
-              <button className="viewerAction" onClick={handleDownload}>
-                <IcDownload size={16} />
-                <span>Try downloading</span>
-              </button>
-              <button className="viewerAction" onClick={handleMergeAgain}>
-                <IcRotate size={16} />
-                <span>Start new merge</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
-  return (
-    <Layout
-      headerProps={{
-        theme,
-        onToggleTheme: toggleTheme,
-        locale,
-        setLocale: () => {},
-      }}
-    >
       <div className="viewerShell">
-        <div className="viewerHeader">
-          <div className="viewerInfo">
-            <h1 className="viewerTitle">{fileName}</h1>
-            <div className="viewerMeta">
-              {totalPages > 0 && (
-                <span className="viewerPages">Page {currentPage} of {totalPages}</span>
-              )}
-            </div>
+        {loading ? (
+          <div className="viewerLoading">
+            <div className="loadingSpinner"></div>
+            <p>Loading PDF...</p>
           </div>
-          <div className="viewerControls">
-            <button 
-              className="viewerControl" 
-              onClick={handlePreviousPage}
-              disabled={currentPage <= 1}
-            >
-              ← Previous
-            </button>
-            <button 
-              className="viewerControl" 
-              onClick={handleNextPage}
-              disabled={currentPage >= totalPages}
-            >
-              Next →
-            </button>
-            <button className="viewerControl primary" onClick={handleDownload}>
-              <IcDownload size={16} />
-              Download
-            </button>
-            <button className="viewerControl" onClick={handleMergeAgain}>
-              <IcRotate size={16} />
-              Merge again
-            </button>
-          </div>
-        </div>
-
-        <div className="viewerContent">
-          {loading ? (
-            <div className="viewerLoading">
-              <div className="loadingSpinner"></div>
-              <p>Loading PDF...</p>
-            </div>
-          ) : (
-            <div className="pdfContainer">
-              <canvas id="pdf-canvas" className="pdfCanvas"></canvas>
-            </div>
-          )}
-        </div>
+        ) : null}
       </div>
-    </Layout>
+
+      {/* PDF Modal */}
+      {showModal && pdfDocument && (
+        <PdfModal 
+          pdf={pdfDocument} 
+          fileUrl={fileUrl} 
+          onClose={handleCloseModal} 
+        />
+      )}
+      </Layout>
+    </>
   );
 }

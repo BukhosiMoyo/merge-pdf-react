@@ -34,7 +34,7 @@ export default function SiteHeader({
       : "/logo/merge-logo-wide-light.png";
 
   return (
-    <header className="siteHeader">
+    <header className="siteHeader fullbleed-edge">
       <div className="headerInner">
         {/* Brand (link home) */}
         <a href="/" className="brand" aria-label="Merge PDF — Home">

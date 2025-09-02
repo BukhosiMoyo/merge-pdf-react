@@ -16,6 +16,7 @@
   /* Light Theme */
   --bg: #f6f7fb;
   --text: #111;
+  --text-muted: #4a4a4a;
   --muted: #6b7280;
   --card: #fff;
   --border: #e6e8ee;
@@ -30,9 +31,9 @@
   --tile-gap: 16px;
   --tile-w: 220px;               /* base desktop width */
   --tile-ratio: 3 / 4;           /* preview area ratio */
-  --tile-name-h: 36px;           /* filename bar fixed height */
+  /* --tile-name-h: removed - now using content-driven height */
   
-  /* Spacing */
+  /* Spacing - REDUCED for tighter layout */
   --header-gap: 12px;            /* Gap between header and floating actions */
   --actions-tiles-gap: 25px;     /* Gap between floating actions and first tile row */
 }
@@ -40,7 +41,8 @@
 /* Dark Theme */
 html[data-theme="dark"] {
   --bg: #0b1220;
-  --text: #e5e7eb;
+  --text: #fff;
+  --text-muted: rgba(255,255,255,0.78);
   --muted: #9ca3af;
   --card: #0f172a;
   --border: #1f2937;
@@ -59,8 +61,27 @@ html[data-theme="dark"] {
   padding: 0;
 }
 
+/* Scope scrollbar gutter to scrollable panes only (not the whole page) */
+/* Remove/avoid global both-edges on root to prevent page side-gutters */
 html, body, #root {
   height: 100%;
+  scrollbar-gutter: auto; /* or simply remove this block if not needed */
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box;
+}
+.mainScroll,
+.pdfViewerContent,
+.pdfInspectBody {
+  scrollbar-gutter: stable; /* keeps layout from shifting, no side gutters */
+}
+
+/* Full-bleed utility class */
+.fullbleed-edge {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  position: relative;
 }
 
 body {
@@ -69,19 +90,42 @@ body {
   color: var(--text);
   font-family: var(--app-font);
   scroll-behavior: smooth;
+  /* Ensure content flows from top */
+  display: flex;
+  flex-direction: column;
 }
 
 /* ===== HEADER ===== */
+/* Header remains sticky and above the hairline */
 .siteHeader {
   position: sticky;
   top: 0;
-  z-index: 60;
+  z-index: 1000; /* ensure header content is above the hairline */
   padding: 10px 18px;
   min-height: 56px;
   background: color-mix(in srgb, var(--bg) 85%, transparent);
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border);
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.02);
+  /* Ensure header maintains full width and proper layout */
+  width: 100%;
+  align-self: stretch;
+}
+
+/* Full-bleed hairline placed just UNDER the header and behind content */
+.siteHeader::after {
+  content: "";
+  position: absolute;
+  /* draw the line 1px below the header's bottom so it never overlaps */
+  bottom: -1px;
+  height: 1px;
+  background: var(--border);
+  /* make it viewport-wide, ignoring container padding */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100vw;
+  /* never intercept pointer events; stay behind other UI */
+  pointer-events: none;
+  z-index: 0;
 }
 
 .headerInner {
@@ -90,6 +134,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  /* Ensure header content maintains proper layout */
+  width: 100%;
 }
 
 .brand {
@@ -150,6 +196,7 @@ html[data-theme="dark"] .logo-dark {
   transition: all 0.2s ease;
   height: 40px;
   min-width: fit-content;
+  text-decoration: none;
 }
 
 .statsLink:hover {
@@ -157,6 +204,7 @@ html[data-theme="dark"] .logo-dark {
   color: #fff;
   border-color: var(--brand);
   transform: translateY(-1px);
+  text-decoration: none;
 }
 
 .statsLinkText {
@@ -185,6 +233,7 @@ html[data-theme="dark"] .logo-dark {
   color: var(--text);
   padding: 6px 24px 6px 8px;
   border-radius: 8px;
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-weight: 700;
   cursor: pointer;
   appearance: none;
@@ -217,6 +266,7 @@ html[data-theme="dark"] .logo-dark {
   background: var(--card);
   border: 1px solid var(--border);
   color: var(--text);
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
@@ -304,6 +354,7 @@ html[data-theme="dark"] .logo-dark {
   border: 1px solid var(--border);
   color: var(--text);
   padding: 8px 14px;
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -433,6 +484,9 @@ html[data-theme="dark"] .logo-dark {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  /* Ensure content flows from top */
+  justify-content: flex-start;
+  align-items: stretch;
 }
 
 .pageMain {
@@ -440,6 +494,9 @@ html[data-theme="dark"] .logo-dark {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* Force content to start from top */
+  align-items: stretch;
+  justify-content: flex-start;
 }
 
 .appShell {
@@ -447,6 +504,16 @@ html[data-theme="dark"] .logo-dark {
   flex-direction: column;
   min-height: 0;
   width: 100%;
+  /* Prevent page scroll during drag */
+  overflow-x: hidden;
+  /* Force content to start from top */
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+/* Prevent page scroll during drag operations */
+.appShell.dragging {
+  overflow: hidden;
 }
 
 /* Desktop: Full width layout (no sidebar) */
@@ -456,24 +523,36 @@ html[data-theme="dark"] .logo-dark {
     flex-direction: column;
     width: 100%;
     max-width: 100%;
+    /* Allow tooltips to overflow */
+    overflow: visible;
+    /* Remove flex expansion */
+    align-items: stretch;
+    justify-content: flex-start;
   }
 }
 
 .canvasArea {
   padding: 0;
-  overflow: auto;
-  flex: 1;
-  min-height: 0;
+  overflow: visible; /* Allow tooltips to overflow */
+  /* Remove flex: 1 to prevent full height expansion */
   width: 100%;
   max-width: 100%;
+  /* Ensure tooltips can render above everything */
+  position: relative;
+  /* Force content to start from top */
+  align-self: flex-start;
+  /* Allow child elements to center */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* Desktop: Minimal top padding for tight spacing */
 @media (min-width: 1025px) {
   .canvasArea {
-    padding: 0 16px;
-    padding-top: 0;  /* No top padding - floating actions handle spacing */
-    padding-bottom: 200px;
+    padding-inline: 0;
+    padding-top: 0; /* No top padding - action bar handles spacing */
+    padding-bottom: 20px;
     max-width: 1400px;
     margin: 0 auto;
   }
@@ -482,29 +561,63 @@ html[data-theme="dark"] .logo-dark {
 /* Tablet: Minimal top padding */
 @media (min-width: 769px) and (max-width: 1024px) {
   .canvasArea {
-    padding: 16px;
-    padding-top: 0;  /* No top padding - floating actions handle spacing */
-    padding-bottom: 180px;
+    padding-inline: 0;
+    padding-top: 0; /* No top padding - action bar handles spacing */
+    padding-bottom: 20px;
   }
 }
 
 /* Mobile: Minimal top padding */
 @media (max-width: 768px) {
   .canvasArea {
-    padding: 8px;
-    padding-top: 0;  /* No top padding - floating actions handle spacing */
-    padding-bottom: 160px;
+    padding-inline: 0;
+    padding-top: 0; /* No top padding - action bar handles spacing */
+    padding-bottom: 20px;
     width: 100%;
     max-width: 100%;
     overflow-x: hidden;
+    /* Prevent scroll during drag on mobile */
+    touch-action: pan-y;
+  }
+  
+  /* Improve touch targets on mobile */
+  .pdfTile {
+    touch-action: manipulation;
+    /* Increase touch area without changing visual size */
+    padding: 4px;
+    margin: -4px;
+  }
+  
+  /* Mobile drag clone optimizations */
+  .draggingClone {
+    /* Ensure 50% scale works well on mobile */
+    transform: scale(0.5);
+    /* Keep clone readable on small screens */
+    min-width: 110px;
+    min-height: 80px;
+  }
+  
+
+  
+
+  
+  /* Mobile container optimizations */
+  .pdfTilesContainer {
+    /* Ensure proper spacing on mobile */
+    padding: 8px;
+    /* Prevent overflow */
+    max-width: 100vw;
+    /* Maintain centering on mobile */
+    margin: 0 auto;
+    align-self: center;
   }
 }
 
 /* Small mobile: Minimal padding */
 @media (max-width: 480px) {
   .canvasArea {
-    padding: 8px;
-    padding-bottom: 160px;
+    padding-inline: 0;
+    padding-bottom: 20px; /* Reduced from 160px */
   }
 }
 
@@ -533,6 +646,103 @@ html[data-theme="dark"] .logo-dark {
   font-size: 14px;
   color: var(--muted);
   line-height: 1.5;
+}
+
+/* ===== DROP OVERLAY ===== */
+.dropOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(2px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.dropOverlayInner {
+  background: var(--card);
+  border: 2px dashed var(--brand);
+  border-radius: 20px;
+  padding: 40px;
+  text-align: center;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.bigCatch {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.smallCatch {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+/* ===== LOADING OVERLAY ===== */
+.loadingOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.loadingCard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 40px;
+  text-align: center;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.ring {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+}
+
+.ringInner {
+  position: absolute;
+  inset: 0;
+  border: 4px solid var(--border);
+  border-top: 4px solid var(--brand);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.ringText {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mergeMsg {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.mergeSpeed {
+  font-size: 14px;
+  color: var(--muted);
 }
 
 /* ===== ZERO STATE ===== */
@@ -672,15 +882,425 @@ html[data-theme="dark"] .logo-dark {
   }
 }
 
-/* ===== FAQ STYLING ===== */
+/* ===== PDF MODAL STYLING ===== */
+.pdfModalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.pdfModal {
+  background: var(--bg);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 90vw;
+  max-height: 90vh;
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  position: relative;
+}
+
+.pdfModal.withThumbnails {
+  max-width: 95vw;
+}
+
+.pdfModalContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Thumbnails Rail */
+.pdfThumbnailsRail {
+  width: 200px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.thumbnailsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.thumbnailsHeader h3 {
+  margin: 0;
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.thumbnailsClose {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.thumbnailsClose:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.thumbnailsList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.thumbnailItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.thumbnailItem:hover {
+  background: color-mix(in srgb, var(--brand) 5%, transparent 95%);
+  border-color: color-mix(in srgb, var(--brand) 20%, var(--border) 80%);
+}
+
+.thumbnailItem.active {
+  background: color-mix(in srgb, var(--brand) 10%, transparent 90%);
+  border-color: var(--brand);
+}
+
+.thumbnailCanvas {
+  width: 120px;
+  height: 160px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.thumbnailCanvas img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.thumbnailSkeleton {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.thumbnailNumber {
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pdfModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 16px;
+}
+
+.pdfModalHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.pdfModalHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pdfModalTitle {
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.pageIndicator {
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg);
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+/* Zoom Controls */
+.zoomControls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.zoomBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.zoomBtn:hover {
+  background: color-mix(in srgb, var(--brand) 10%, transparent 90%);
+  color: var(--brand);
+}
+
+.zoomBtn.active {
+  background: var(--brand);
+  color: white;
+}
+
+.zoomLevel {
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 0 8px;
+  min-width: 40px;
+  text-align: center;
+}
+
+.pdfModalActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pdfModalBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.pdfModalBtn:hover {
+  background: color-mix(in srgb, var(--brand) 4%, transparent 96%);
+  border-color: color-mix(in srgb, var(--brand) 30%, var(--border) 70%);
+  color: var(--brand);
+}
+
+.pdfModalBtn.active {
+  background: color-mix(in srgb, var(--brand) 10%, transparent 90%);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.pdfModalBtn.primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: white;
+}
+
+.pdfModalBtn.primary:hover {
+  background: var(--brand-600);
+  border-color: var(--brand-600);
+  color: white;
+}
+
+.pdfModalBtn.close {
+  padding: 10px;
+  min-width: auto;
+}
+
+.pdfModalBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  background: #f8f9fa;
+}
+
+.pdf-page {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.pdfPageSkeleton {
+  position: relative;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdfPageSkeleton::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.pdfPageSkeleton[data-rendered="1"]::before {
+  display: none;
+}
+
+.pdfPageSkeleton canvas {
+  position: relative;
+  z-index: 1;
+  max-width: 100%;
+  height: auto;
+}
+
+.pdfModalFooter {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.pdfModalFooter p {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Mobile responsive */
+@media (max-width: 1023px) {
+  .pdfThumbnailsRail {
+    display: none;
+  }
+  
+  .pdfModal.withThumbnails {
+    max-width: 90vw;
+  }
+}
+
+@media (max-width: 768px) {
+  .pdfModalOverlay {
+    padding: 10px;
+  }
+  
+  .pdfModal {
+    max-width: 95vw;
+    max-height: 95vh;
+  }
+  
+  .pdfModalHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: 16px 20px;
+  }
+  
+  .pdfModalHeaderLeft {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .pdfModalHeaderRight {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .zoomControls {
+    order: 1;
+  }
+  
+  .pdfModalActions {
+    order: 2;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .pdfModalBody {
+    padding: 16px;
+  }
+  
+  .pdfModalFooter {
+    padding: 12px 20px;
+  }
+}
+
+/* ===== FAQ STYLING - STABILIZED WIDTH ===== */
 .faqWrap {
   text-align: center;
   margin: 48px auto;
   max-width: 800px;
   padding: 0 20px;
+  box-sizing: border-box;
 }
 
-.faqTitle {
+.faqWrap .faqTitle {
   font-size: clamp(32px, 5vw, 42px);
   font-weight: 800;
   color: var(--text);
@@ -688,33 +1308,40 @@ html[data-theme="dark"] .logo-dark {
   text-align: center;
 }
 
-.faqList {
+.faqWrap .faqList {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: 16px;
   text-align: left;
+  width: 100%;
+  min-width: 0;
 }
 
-.faqItem {
+.faqWrap .faqItem {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
-.faqItem:hover {
+.faqWrap .faqItem:hover {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
 }
 
-.faqItem[open] {
+.faqWrap .faqItem[open] {
   border-color: var(--brand);
   box-shadow: 0 4px 20px rgba(var(--brand-rgb), 0.15);
 }
 
-.faqQ {
+.faqWrap .faqQ {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -722,26 +1349,28 @@ html[data-theme="dark"] .logo-dark {
   cursor: pointer;
   font-weight: 600;
   font-size: 18px;
-  color: #2c3e50;
+  color: var(--text);
   background: var(--card);
   border: none;
   width: 100%;
   text-align: left;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease;
+  box-sizing: border-box;
 }
 
-.faqQ:hover {
+.faqWrap .faqQ:hover {
   background: var(--bg);
 }
 
-.faqQText {
+.faqWrap .faqQText {
   flex: 1;
   margin-right: 20px;
+  min-width: 0;
 }
 
-.faqChevron {
+.faqWrap .faqChevron {
   font-size: 24px;
-  transition: all 0.4s ease;
+  transition: transform 0.4s ease;
   color: var(--brand);
   flex-shrink: 0;
   font-weight: bold;
@@ -753,71 +1382,74 @@ html[data-theme="dark"] .logo-dark {
   position: relative;
 }
 
-.faqChevron::before {
+.faqWrap .faqChevron::before {
   content: '+';
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  transition: all 0.4s ease;
+  transition: transform 0.4s ease;
   font-weight: bold;
 }
 
-.faqItem[open] .faqChevron::before {
+.faqWrap .faqItem[open] .faqChevron::before {
   content: '+';
   transform: translate(-50%, -50%) rotate(45deg);
 }
 
-
-
-.faqA {
-  padding: 0 28px 24px 28px;
-  color: #34495e;
+.faqWrap .faqA {
+  padding: 0;
+  color: var(--text-muted);
   line-height: 1.7;
   font-size: 17px;
   max-height: 0;
   overflow: hidden;
-  transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: max-height 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.8s ease, transform 0.8s ease;
   opacity: 0;
   transform: translateY(-8px);
+  box-sizing: border-box;
 }
 
-.faqItem[open] .faqA {
+.faqWrap .faqItem[open] .faqA {
   max-height: 400px;
   opacity: 1;
   transform: translateY(0);
   padding: 0 28px 24px 28px;
 }
 
-/* Mobile FAQ optimizations */
+/* Mobile FAQ optimizations - NAMESPACED */
 @media (max-width: 768px) {
   .faqWrap {
     margin: 32px auto;
     padding: 0 16px;
   }
   
-  .faqTitle {
+  .faqWrap .faqTitle {
     font-size: clamp(28px, 6vw, 32px);
     margin-bottom: 24px;
   }
   
-  .faqQ {
+  .faqWrap .faqQ {
     padding: 20px 24px;
     font-size: 17px;
   }
   
-  .faqA {
-    padding: 0 24px 20px 24px;
+  .faqWrap .faqA {
+    padding: 0;
     font-size: 16px;
   }
   
-  .faqChevron {
+  .faqWrap .faqItem[open] .faqA {
+    padding: 0 24px 20px 24px;
+  }
+  
+  .faqWrap .faqChevron {
     font-size: 22px;
     width: 22px;
     height: 22px;
   }
   
-  .faqList {
+  .faqWrap .faqList {
     gap: 12px;
   }
 }
@@ -900,7 +1532,7 @@ html[data-theme="dark"] .logo-dark {
 .statLabel {
   font-size: 16px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text);
   opacity: 0.8;
 }
 
@@ -940,7 +1572,7 @@ html[data-theme="dark"] .logo-dark {
 }
 
 .star {
-  color: #ddd;
+  color: var(--muted);
   transition: all 0.3s ease;
   cursor: pointer;
 }
@@ -964,7 +1596,7 @@ html[data-theme="dark"] .logo-dark {
 
 .ratingCount {
   font-size: 14px;
-  color: #2c3e50;
+  color: var(--text);
   opacity: 0.7;
 }
 
@@ -974,7 +1606,7 @@ html[data-theme="dark"] .logo-dark {
 
 .reviewsDescription {
   font-size: 16px;
-  color: #34495e;
+  color: var(--text-muted);
   line-height: 1.6;
   margin: 0;
 }
@@ -1024,11 +1656,8 @@ html[data-theme="dark"] .logo-dark {
 
 /* ===== FOOTER STYLING ===== */
 .siteFooter {
-  background: linear-gradient(135deg,
-    rgba(135, 206, 235, 0.05) 0%,
-    rgba(100, 149, 237, 0.05) 100%
-  );
-  border-top: 1px solid rgba(135, 206, 235, 0.2);
+  background: var(--card);
+  border-top: 1px solid var(--border);
   padding: 40px 20px;
   margin-top: 60px;
   text-align: center;
@@ -1037,46 +1666,81 @@ html[data-theme="dark"] .logo-dark {
 .footerContent {
   max-width: 1200px;
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 40px;
-  align-items: start;
 }
 
 .footerSection {
-  text-align: left;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
 }
 
 .footerSection h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #0066cc;
-  margin-bottom: 16px;
-  position: relative;
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin: 0;
 }
 
-.footerSection h3::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 0;
-  width: 30px;
-  height: 2px;
-  background: linear-gradient(90deg, #0066cc, #4facfe);
-  border-radius: 1px;
-}
-
-.footerSection p,
-.footerSection a {
-  color: #2c3e50;
-  line-height: 1.6;
-  margin-bottom: 8px;
+.footerCompressBtn {
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
   text-decoration: none;
-  transition: color 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.footerSection a:hover {
-  color: #0066cc;
+.footerCompressBtn:hover {
+  background: var(--brand-600);
+  border-color: var(--brand-600);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(var(--brand-rgb), 0.3);
+}
+
+.footerBrand {
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.footerNav {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.footerLink {
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footerLink:hover {
+  color: var(--brand);
+}
+
+.footerLink[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .footerBottom {
@@ -1087,7 +1751,7 @@ html[data-theme="dark"] .logo-dark {
 }
 
 .footerBottom p {
-  color: #34495e;
+  color: var(--text-muted);
   font-size: 14px;
   margin: 0;
 }
@@ -1128,22 +1792,22 @@ html[data-theme="dark"] .logo-dark {
   }
   
   .footerContent {
-    grid-template-columns: 1fr;
-    gap: 32px;
+    flex-direction: column;
+    gap: 24px;
     text-align: center;
   }
   
   .footerSection {
-    text-align: center;
+    align-items: center;
   }
   
-  .footerSection h3::after {
-    left: 50%;
-    transform: translateX(-50%);
+  .footerCompressBtn {
+    padding: 14px 28px;
+    font-size: 16px;
   }
   
-  .footerSocial {
-    margin-top: 20px;
+  .footerNav {
+    justify-content: center;
   }
 }
 
@@ -1280,6 +1944,14 @@ html[data-theme="dark"] .logo-dark {
   display: inline-block;
 }
 
+/* Ensure tooltips have higher z-index than FABs */
+.tooltip.above,
+.tooltip.bottom,
+.pdfInfoTooltip,
+.pdfNameTooltip {
+  z-index: 150000; /* Higher than FABs (99999) */
+}
+
 
 
 /* Tooltip content */
@@ -1298,7 +1970,7 @@ html[data-theme="dark"] .logo-dark {
   opacity: 0;
   visibility: hidden;
   transition: all 0.3s ease;
-  z-index: 1000;
+  z-index: 10000; /* Higher than action bar to ensure visibility */
   box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3);
   pointer-events: none;
   font-family: inherit;
@@ -1307,6 +1979,8 @@ html[data-theme="dark"] .logo-dark {
   /* Ensure tooltip doesn't interfere with layout */
   pointer-events: none;
   user-select: none;
+  /* Ensure tooltip can't be clipped by any container */
+  isolation: isolate;
 }
 
 /* Tooltip arrow */
@@ -1342,7 +2016,7 @@ html[data-theme="dark"] .logo-dark {
   opacity: 0;
   visibility: hidden;
   transition: all 0.3s ease;
-  z-index: 1000;
+  z-index: 10000; /* Higher than action bar to ensure visibility */
   box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3);
   pointer-events: none;
   font-family: inherit;
@@ -1395,36 +2069,59 @@ html[data-theme="dark"] .logo-dark {
 
 
 
-/* ===== FLOATING ACTION BUTTONS - DIRECTLY UNDER HEADER ===== */
+/* ===== FLOATING ACTION BUTTONS - FIXED POSITIONING ===== */
 .floatingActions {
-  position: relative;
+  position: fixed;
   display: flex;
-  flex-direction: row;
   gap: 16px;
-  z-index: 10;
-  margin: var(--header-gap) auto;  /* Use CSS custom property for consistent spacing */
-  padding: 0;  /* No padding - margin handles spacing */
-  width: fit-content;
-  justify-content: center;
+  z-index: 99999; /* High z-index but below tooltips */
+  background: transparent;
+  /* Ensure tooltips can render above */
+  isolation: isolate;
 }
 
-/* Desktop: Center below header with consistent spacing */
+/* Push tiles below the fixed action buttons */
+.actionsSpacer { height: 20px; }
+
+/* Desktop: FABs are top:70px and 56px tall + gap */
+@media (min-width:1025px){
+  .actionsSpacer { height: calc(70px + 56px + 25px); }
+}
+
+/* Tablet/Mobile: FABs float on the right; just a little top breathing room */
+@media (max-width:1024px){
+  .actionsSpacer { height: 24px; }
+}
+
+/* Desktop: Fixed under header, centered */
 @media (min-width: 1025px) {
   .floatingActions {
+    left: 50%;
+    top: 70px;
+    transform: translateX(-50%);
+    flex-direction: row;
     gap: 20px;
   }
 }
 
-/* Tablet: Center below header with consistent spacing */
+/* Tablet: Fixed on right side, vertically centered */
 @media (min-width: 769px) and (max-width: 1024px) {
   .floatingActions {
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    flex-direction: column;
     gap: 16px;
   }
 }
 
-/* Mobile: Center below header with consistent spacing */
+/* Mobile: Fixed on right side, vertically centered */
 @media (max-width: 768px) {
   .floatingActions {
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    flex-direction: column;
     gap: 12px;
   }
 }
@@ -1857,77 +2554,48 @@ html[data-theme="dark"] .logo-dark {
 }
 
 /* ===== PDF TILES SYSTEM ===== */
-/* Container centers content */
+/* Container centers content with proper containment */
 .pdfTilesContainer { 
   max-width: 1400px; 
   margin: 0 auto; 
   padding: var(--tile-gap); 
-  padding-top: var(--actions-tiles-gap); /* Add spacing between floating actions and tiles */
-  width: 100%; /* Ensure full width for proper centering */
+  padding-top: 0; /* Remove top padding - spacing handled by action bar margin */
+  width: 100%; /* Full width for proper centering */
+  /* Ensure proper centering and spacing */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Allow tooltips to overflow */
+  overflow: visible;
+  box-sizing: border-box;
+  /* Ensure tooltips can render above */
+  position: relative;
+  /* Ensure content starts from top, not center */
+  justify-content: flex-start;
 }
 
 /* Grid always centered with perfect horizontal alignment */
 .pdfTilesGrid {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--tile-gap);
-  grid-template-columns: repeat(2, var(--tile-w));
-  justify-content: center;     /* Center the entire grid */
-  justify-items: center;       /* Center individual tiles within their grid cells */
-  align-content: start;        /* Start from top, no extra spacing */
-  width: 100%;                 /* Full width to ensure centering works */
-  margin: 0 auto;              /* Additional centering insurance */
-  /* Ensure single tiles and last rows are perfectly centered */
-  place-content: center start;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  /* Allow tooltips to overflow */
+  overflow: visible;
+  /* Ensure tooltips can render above */
+  position: relative;
 }
 
-/* Responsive column counts with maintained centering */
-@media (min-width: 768px)   { 
-  .pdfTilesGrid { 
-    grid-template-columns: repeat(3, var(--tile-w)); 
-    justify-content: center;
-  } 
-}
-@media (min-width: 1024px)  { 
-  .pdfTilesGrid { 
-    grid-template-columns: repeat(6, var(--tile-w)); 
-    justify-content: center;
-  } 
-}
 
-/* Ensure last row stays centered when fewer tiles */
-.pdfTilesGrid:empty::after {
-  content: '';
-  grid-column: 1 / -1;
-  height: 0;
-}
 
-/* Force centering behavior to persist during all operations */
-.pdfTilesGrid:not(:empty) {
-  justify-content: center !important;
-  align-content: start !important;
-  place-content: center start !important;
-}
 
-/* Special centering for single tile and last row scenarios */
-.pdfTilesGrid:has(> :only-child) {
-  justify-content: center !important;
-}
 
-/* Ensure last row with fewer tiles stays centered */
-.pdfTilesGrid:has(> :nth-last-child(-n+3):first-child) {
-  justify-content: center !important;
-}
 
-/* Fallback centering for browsers that don't support :has() */
-.pdfTilesGrid:only-child {
-  justify-content: center !important;
-}
 
-/* Additional centering insurance for single tiles */
-.pdfTilesGrid > :only-child {
-  grid-column: 1 / -1;
-  justify-self: center;
-}
 
 /* Tile layering so tooltips don't go under neighbors */
 .pdfTile { 
@@ -1942,9 +2610,48 @@ html[data-theme="dark"] .logo-dark {
   cursor: grab;
   user-select: none;
   will-change: box-shadow, border-color; /* keeps text from "stuttering" */
+  /* Prevent overlap and ensure proper positioning */
+  box-sizing: border-box;
+  /* Ensure tiles don't overflow */
+  max-width: 100%;
+  /* Prevent transform conflicts */
+  transform: translateZ(0);
+  /* Flex item centering */
+  flex-shrink: 0;
+  /* Transition for drag states */
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+}
+
+/* Dragging state for original tile */
+.pdfTile.dragging {
+  opacity: 0.3;
+  border: 2px solid #ef4444;
+  pointer-events: none;
+}
+
+/* Hide tile actions during drag */
+.tileActions.hiddenDuringDrag {
+  opacity: 0;
+  pointer-events: none;
 }
 .pdfTile:hover { z-index: 10; }
-.draggingClone { z-index: 2000; box-shadow: 0 14px 40px rgba(0,0,0,.22); }
+.draggingClone { 
+  z-index: 2000; 
+  box-shadow: 0 14px 40px rgba(0,0,0,.22); 
+  transform: scale(0.5);
+  opacity: 0.95;
+  pointer-events: none;
+  position: fixed;
+  will-change: transform;
+  transform-origin: center center;
+  /* Ensure clone is readable on mobile */
+  min-width: 110px;
+  min-height: 80px;
+  /* Ensure proper border radius */
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
 .pdfTile:hover {
   transform: none;                   /* remove lift to avoid collisions/jitter */
   box-shadow: 0 6px 18px rgba(0,0,0,.10), 0 0 0 2px color-mix(in srgb, var(--brand) 65%, transparent) inset;
@@ -1956,7 +2663,7 @@ html[data-theme="dark"] .logo-dark {
 .pdfPreview { 
   position: relative; 
   aspect-ratio: var(--tile-ratio); 
-  padding: 14px; 
+  padding: 12px 12px 4px 12px; /* Tiny bottom gap above filename */
 }
 .pdfPreviewInner { 
   position: relative; 
@@ -1982,6 +2689,43 @@ html[data-theme="dark"] .logo-dark {
   object-fit: contain; 
   display: block; 
 }
+
+/* PDF Name with proper styling - REMOVED CONFLICTING RULE */
+
+/* Filename tooltip */
+.pdfNameTooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 15000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  margin-bottom: 8px;
+}
+
+.pdfNameTooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--text);
+}
+
+.pdfTile:hover .pdfNameTooltip {
+  opacity: 1;
+}
+
+
 
 /* Undo toast positioning */
 .undoToast {
@@ -2015,63 +2759,15 @@ html[data-theme="dark"] .logo-dark {
   background: rgba(255,255,255,.2);
 }
 
-/* Dashed placeholder slot remains visible until drop */
-.pdfTile.placeholder {
-  aspect-ratio: var(--tile-ratio);
-  border: 2px dashed color-mix(in srgb, var(--brand) 60%, var(--border) 40%);
-  border-radius: 12px; 
-  box-shadow: none; 
-  display: grid; 
-  place-items: center; 
-  background: transparent;
-  margin: 0; /* Prevent any margin interference */
-  padding: 0; /* Prevent any padding interference */
-  width: var(--tile-w); /* Ensure placeholder matches tile width */
-  height: fit-content; /* Allow height to adjust to content */
-}
 
-.placeholderLabel { 
-  color: var(--muted); 
-  font-weight: 700; 
-  font-size: 12px; 
-  text-align: center;
-  padding: 8px;
-}
 
-/* Enhanced drag and drop styling */
-.pdfTile.dragging {
-  opacity: 0.8;
-  transform: rotate(2deg) scale(1.02); /* Slight rotation and scale for visual feedback */
-  box-shadow: 0 14px 40px rgba(0,0,0,.22);
-  z-index: 1000;
-  border: 2px solid var(--brand);
-  cursor: grabbing;
-}
 
-/* Hide action buttons during drag */
-.pdfTile.dragging .tileActions {
-  opacity: 0;
-  visibility: hidden;
-}
 
-/* Drag clone styling */
-.draggingClone {
-  z-index: 2000; 
-  box-shadow: 0 14px 40px rgba(0,0,0,.22);
-  transform: scale(1.05);
-  opacity: 0.9;
-}
 
-/* Ensure grid maintains centering when tiles are added/removed */
-.pdfTilesGrid {
-  min-height: 0; /* Prevent grid from expanding unnecessarily */
-}
 
-/* Force centering behavior to persist */
-.pdfTilesGrid:not(:empty) {
-  justify-content: center;
-  align-content: start;
-}
+
+
+
 
 /* Remove "scale up" on hover that caused collisions */
 .pdfPreview:hover .pdfThumbnail { transform: none; }
@@ -2090,37 +2786,7 @@ html[data-theme="dark"] .logo-dark {
   z-index: 5;
 }
 
-/* Tooltip component reuse (above) */
-.tooltipHost { position: relative; }
-.tooltip.above {
-  position: absolute; 
-  bottom: 100%; 
-  left: 50%; 
-  transform: translateX(-50%);
-  background: #2563eb; 
-  color: #fff; 
-  padding: 6px 10px; 
-  border-radius: 8px; 
-  font-size: 12px; 
-  font-weight: 600;
-  white-space: nowrap; 
-  opacity: 0; 
-  visibility: hidden; 
-  transition: all .2s; 
-  margin-bottom: 8px; 
-  z-index: 2500;
-  box-shadow: 0 4px 16px rgba(37,99,235,.3);
-}
-.tooltip.above::after { 
-  content: ""; 
-  position: absolute; 
-  top: 100%; 
-  left: 50%; 
-  transform: translateX(-50%); 
-  border: 6px solid transparent; 
-  border-top-color: #2563eb; 
-}
-.tooltipHost:hover .tooltip.above { opacity: 1; visibility: visible; }
+
 
 /* Actions on right; hide only on the tile being dragged */
 .tileActions { 
@@ -2129,7 +2795,7 @@ html[data-theme="dark"] .logo-dark {
   right: 8px; 
   display: flex; 
   gap: 6px; 
-  z-index: 3500; 
+  z-index: 3500; /* High enough for action buttons but lower than tooltips */
 }
 .tileActionBtn { 
   width: 28px; 
@@ -2144,34 +2810,14 @@ html[data-theme="dark"] .logo-dark {
 .tileActionBtn.deleteBtn { background: #ef4444; }
 .tileActions.hiddenDuringDrag { opacity: 0; visibility: hidden; }
 
-/* FABs become inert while dragging */
-.fabButton[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+/* FABs remain active during dragging - no disabling */
+.fabButton[aria-disabled="true"] { 
+  /* Remove disabled state - controls stay active during drag */
+  opacity: 1; 
+  pointer-events: auto; 
+}
 
-/* Previous position arrow (simple dot+triangle) */
-.prevPosArrow { 
-  position: fixed; 
-  transform: translate(-50%,-6px); 
-  z-index: 3200; 
-  pointer-events: none; 
-}
-.prevPosArrow .arrowDot {
-  position: relative; 
-  width: 10px; 
-  height: 10px; 
-  background: #111; 
-  border-radius: 999px; 
-  display: block;
-  box-shadow: 0 4px 10px rgba(0,0,0,.25);
-}
-.prevPosArrow .arrowDot::after {
-  content: ""; 
-  position: absolute; 
-  top: 0; 
-  left: 50%; 
-  transform: translateX(-50%); 
-  border: 6px solid transparent; 
-  border-top-color: #111; 
-}
+
 
 /* Small polish to stop tooltip clipping & text jitter */
 .pdfTile, .pdfName, .pdfPreview { 
@@ -2197,7 +2843,9 @@ html[data-theme="dark"] .logo-dark {
   box-shadow: 0 4px 16px rgba(37,99,235,.3); 
   opacity: 0; 
   transition: opacity .15s, transform .15s; 
-  z-index: 3000;
+  z-index: 15000; /* Highest z-index to ensure visibility above action bar */
+  /* Ensure tooltip can't be clipped by any container */
+  isolation: isolate;
 }
 .pdfInfoTooltip::after { 
   content: ""; 
@@ -2215,26 +2863,29 @@ html[data-theme="dark"] .logo-dark {
 /* if hovering buttons, keep it hidden */
 .tileActions:hover ~ .pdfInfoTooltip { opacity: 0 !important; }
 
-/* Filename row: left aligned, padded both sides, ellipsis works reliably */
+/* Filename row: content-driven height with symmetric padding */
 .pdfName {
-  height: var(--tile-name-h);
+  height: auto;                   /* content-driven height */
   display: flex; 
   align-items: center; 
   justify-content: flex-start;
-  padding: 0 12px;                /* left & right padding */
+  padding: 6px 12px;              /* symmetric top/bottom padding */
+  margin: 0;                      /* no extra margins */
   min-width: 0;                   /* critical for ellipsis inside grid/flex */
   font-size: 13px; 
   font-weight: 600;
+  line-height: 1.25;              /* tight line height */
   white-space: nowrap; 
   overflow: hidden; 
   text-overflow: ellipsis;
-  border-top: none; 
+  border-top: none;               /* no border-top */
   background: transparent; 
   text-align: left;
+  box-sizing: border-box;
 }
 .pdfNameTooltip {
   position: absolute;
-  bottom: calc(var(--tile-name-h) + 10px); 
+  bottom: calc(100% + 10px); 
   left: 50%; 
   transform: translateX(-50%);
   background: #2563eb; 
@@ -2248,9 +2899,11 @@ html[data-theme="dark"] .logo-dark {
   overflow: hidden; 
   text-overflow: ellipsis;
   box-shadow: 0 6px 18px rgba(37,99,235,.35); 
-  z-index: 5000; 
+  z-index: 15000; /* Highest z-index to ensure visibility above action bar */
   display: none; 
   pointer-events: none;
+  /* Ensure tooltip can't be clipped by any container */
+  isolation: isolate;
 }
 .pdfNameTooltip::after { 
   content: ""; 
@@ -2341,27 +2994,9 @@ html[data-theme="dark"] .logo-dark {
 .tileActionBtn.rotateBtn:hover, .tileActionBtn.deleteBtn:hover { filter: brightness(1.05); }
 .tileActionBtn svg { stroke-width: 2.4; }
 
-/* Info bubble above tile (centered, with arrow) */
-.pdfInfoTooltip{
-  position:absolute;
-  top:-8px; left:50%;
-  transform: translate(-50%,-100%);
-  background:#111; color:#fff;
-  padding:6px 10px; border-radius:8px;
-  font-size:12px; font-weight:600;
-  opacity:0; pointer-events:none;
-  transition: opacity .15s ease, transform .15s ease;
-  box-shadow: 0 4px 16px rgba(0,0,0,.2);
-}
-.pdfInfoTooltip::after{
-  content:""; position:absolute; top:100%; left:50%;
-  transform:translateX(-50%);
-  border:6px solid transparent; border-top-color:#111;
-}
-.pdfTile:hover .pdfInfoTooltip{ opacity:1; transform: translate(-50%,-110%); }
 
-/* Preview padding + centered thumbnail */
-.pdfPreview { padding: 14px; }
+
+/* Preview padding + centered thumbnail - REMOVED CONFLICTING RULE */
 .pdfThumbnail { width: 100%; height: 100%; object-fit: contain; }
 
 /* Centered grid and consistent outside spacing - cleaned up */
@@ -2375,20 +3010,417 @@ html[data-theme="dark"] .logo-dark {
   display: grid; place-items: center;
   padding: 20px;
 }
-.pdfViewerModal{ max-width: 1024px; width: 100%; border-radius: 16px; overflow: hidden; }
-.pdfViewerContent{
-  max-height: min(72vh, 900px);
-  padding: 12px; background: var(--tile-bg);
+
+
+/* ===== PDF INSPECT MODAL STYLES ===== */
+
+/* Modal overlay and suppression */
+.pdfInspectModalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
 }
 
-/* scrollbar */
-.pdfViewerContent::-webkit-scrollbar{ width: 10px; }
-.pdfViewerContent::-webkit-scrollbar-track{ background: transparent; }
-.pdfViewerContent::-webkit-scrollbar-thumb{
-  background: color-mix(in srgb, var(--brand) 50%, #999 50%);
-  border-radius: 8px;
+.pdfInspectModal {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
-.pdfViewerContent{ scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--brand) 50%, #999 50%) transparent; }
+
+/* Header */
+.pdfInspectHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: var(--card);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.pdfInspectHeader::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border);
+}
+
+.pdfInspectHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.pdfInspectIcon {
+  width: 40px;
+  height: 40px;
+  background: color-mix(in srgb, var(--brand) 8%, transparent 92%);
+  border: 1px solid color-mix(in srgb, var(--brand) 20%, var(--border) 80%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand);
+  flex-shrink: 0;
+}
+
+.pdfInspectFileInfo {
+  min-width: 0;
+  flex: 1;
+}
+
+.pdfInspectTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 4px;
+  line-height: 1.2;
+}
+
+.pdfInspectFileName {
+  font-size: 14px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.pdfInspectHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pdfInspectActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdfInspectBtn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.pdfInspectBtn:hover {
+  background: var(--bg);
+  border-color: var(--brand);
+  transform: translateY(-1px);
+}
+
+.pdfInspectBtn.primary {
+  background: var(--brand);
+  color: white;
+  border-color: var(--brand);
+}
+
+.pdfInspectBtn.primary:hover {
+  background: var(--brand-600);
+  transform: translateY(-1px);
+}
+
+.pdfInspectBtn.delete {
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.pdfInspectBtn.delete:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.pdfInspectClose {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.pdfInspectClose:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* File Info Badges */
+.pdfInspectBadges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: color-mix(in srgb, var(--brand) 4%, transparent 96%);
+  border-bottom: 1px solid var(--border);
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  animation: pdfInspectBadgesEntrance 0.3s ease-out 0.1s both;
+}
+
+@keyframes pdfInspectBadgesEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pdfInspectBadge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px 8px;
+}
+
+.pdfInspectBadgeSeparator {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Viewer Body */
+.pdfInspectBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  background: var(--bg);
+}
+
+/* Modal scrollbar styling */
+.pdfInspectBody::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pdfInspectBody::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.pdfInspectBody::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-muted) 30%, transparent 70%);
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+.pdfInspectBody::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-muted) 50%, transparent 50%);
+}
+
+.pdfInspectBody::-webkit-scrollbar-thumb:active {
+  background: color-mix(in srgb, var(--text-muted) 70%, transparent 30%);
+}
+
+/* Firefox scrollbar */
+.pdfInspectBody {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-muted) 30%, transparent 70%) transparent;
+}
+
+.pdfInspectPage {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.pdfInspectPageSkeleton {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.pdfInspectPageSkeleton::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  animation: pdfInspectShimmer 1.5s infinite;
+}
+
+.pdfInspectPageSkeleton[data-rendered="1"]::before {
+  display: none;
+}
+
+@keyframes pdfInspectShimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.pdfInspectPageSkeleton canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Delete Confirmation Toast */
+.pdfInspectDeleteToast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ef4444;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  z-index: 10001;
+  animation: pdfInspectToastSlide 0.3s ease-out;
+}
+
+@keyframes pdfInspectToastSlide {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .pdfInspectModalOverlay {
+    padding: 10px;
+  }
+  
+  .pdfInspectModal {
+    max-height: 95vh;
+  }
+  
+  .pdfInspectHeader {
+    padding: 16px 20px;
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .pdfInspectHeaderLeft {
+    justify-content: center;
+  }
+  
+  .pdfInspectHeaderRight {
+    justify-content: space-between;
+  }
+  
+  .pdfInspectActions {
+    order: 2;
+  }
+  
+  .pdfInspectClose {
+    order: 1;
+  }
+  
+  .pdfInspectBadges {
+    padding: 10px 20px;
+    justify-content: center;
+  }
+  
+  .pdfInspectBody {
+    padding: 16px;
+  }
+  
+  .pdfInspectFileName {
+    max-width: 150px;
+  }
+}
+
+/* Suppress tile tooltips when modal is open */
+body.modal-open .pdfInfoTooltip {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Hide Merge CTA when modal is open */
+body.modal-open .mobileMergeButton {
+  display: none !important;
+}
+
+body.modal-open .floatingActions {
+  display: none !important;
+}
+
+/* Ensure modal tooltips are above everything */
+.pdfInspectModal .tooltip {
+  z-index: 10001 !important;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .pdfInspectBadges {
+    animation: none;
+  }
+  
+  .pdfInspectBtn:hover {
+    transform: none;
+  }
+  
+  .pdfInspectBtn.primary:hover {
+    transform: none;
+  }
+  
+  .pdfInspectPageSkeleton::before {
+    animation: none;
+  }
+}
 
 /* ===== DOWNLOAD PAGE STYLES ===== */
 
@@ -2397,7 +3429,7 @@ html[data-theme="dark"] .logo-dark {
   justify-content: center;
   align-items: flex-start;
   min-height: 60vh;
-  padding: 40px 20px;
+  padding: 40px 0;            /* remove side padding */
 }
 
 .downloadCard {
@@ -2410,6 +3442,37 @@ html[data-theme="dark"] .logo-dark {
   width: 100%;
   box-shadow: var(--shadow);
   position: relative;
+  animation: downloadCardEntrance 0.3s ease-out;
+}
+
+@keyframes downloadCardEntrance {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .downloadCard {
+    animation: none;
+  }
+  
+  .fileInfoPill {
+    animation: none;
+  }
+  
+  .downloadButton:hover {
+    transform: none;
+  }
+  
+  .downloadButton:active {
+    transform: none;
+  }
 }
 
 /* Download icon container */
@@ -2443,6 +3506,15 @@ html[data-theme="dark"] .logo-dark {
   line-height: 1.5;
 }
 
+/* Download content container */
+.downloadContentContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 48px;
+}
+
 /* File info pill */
 .fileInfoPill {
   display: inline-flex;
@@ -2452,9 +3524,20 @@ html[data-theme="dark"] .logo-dark {
   border: 1px solid color-mix(in srgb, var(--brand) 20%, var(--border) 80%);
   border-radius: 50px;
   padding: 12px 20px;
-  margin-bottom: 40px;
   font-size: 14px;
   font-weight: 600;
+  animation: fileInfoPillEntrance 0.4s ease-out 0.1s both;
+}
+
+@keyframes fileInfoPillEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .fileType {
@@ -2489,21 +3572,26 @@ html[data-theme="dark"] .logo-dark {
   border: none;
   border-radius: 16px;
   padding: 20px 32px;
+  font-family: 'Montserrat', sans-serif;
   font-size: 18px;
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 4px 16px color-mix(in srgb, var(--brand) 30%, transparent 70%);
-  margin-bottom: 48px;
   min-width: 280px;
   justify-content: center;
 }
 
 .downloadButton:hover {
   background: var(--brand-600);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--brand) 40%, transparent 60%);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--brand) 40%, transparent 60%);
+}
+
+.downloadButton:active {
+  transform: translateY(-1px) scale(0.98);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--brand) 30%, transparent 70%);
 }
 
 .downloadButton:focus {
@@ -2533,6 +3621,7 @@ html[data-theme="dark"] .logo-dark {
   border-radius: 12px;
   padding: 12px 16px;
   color: var(--text);
+  font-family: 'Montserrat', sans-serif;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -2686,6 +3775,21 @@ html[data-theme="dark"] .logo-dark {
   flex-wrap: wrap;
 }
 
+.viewerPageControls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  margin: 16px 0;
+}
+
+.viewerPageInfo {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 500;
+  color: var(--text);
+  font-size: 14px;
+}
+
 .viewerControl {
   display: flex;
   align-items: center;
@@ -2695,6 +3799,7 @@ html[data-theme="dark"] .logo-dark {
   border-radius: 8px;
   padding: 8px 16px;
   color: var(--text);
+  font-family: 'Montserrat', sans-serif;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -2911,6 +4016,7 @@ html[data-theme="dark"] .logo-dark {
   align-items: center;
   justify-content: center;
   padding: 20px;
+  overflow: hidden;
 }
 
 .ratingCard {
@@ -2918,11 +4024,16 @@ html[data-theme="dark"] .logo-dark {
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 40px;
-  max-width: 480px;
+  max-width: clamp(320px, 90vw, 560px);
   width: 100%;
   text-align: center;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: min(80vh, 680px);
+  overflow: auto;
 }
 
 .ratingClose {
@@ -2934,9 +4045,14 @@ html[data-theme="dark"] .logo-dark {
   color: var(--muted);
   font-size: 20px;
   cursor: pointer;
-  padding: 8px;
-  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s ease;
+  z-index: 10;
 }
 
 .ratingClose:hover {
@@ -2945,29 +4061,30 @@ html[data-theme="dark"] .logo-dark {
 }
 
 .ratingTitle {
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 24px;
   font-weight: 700;
   color: var(--text);
-  margin: 0 0 12px;
+  margin: 0;
 }
 
 .ratingSub {
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 16px;
   color: var(--muted);
-  margin: 0 0 32px;
+  margin: 0;
   line-height: 1.5;
 }
 
 .ratingStars {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  margin-bottom: 24px;
+  gap: 12px;
 }
 
 .starBtn {
   background: transparent;
-  border: 2px solid var(--border);
+  border: 2px solid #6B7280;
   border-radius: 12px;
   width: 48px;
   height: 48px;
@@ -2976,30 +4093,38 @@ html[data-theme="dark"] .logo-dark {
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: var(--muted);
+  color: #6B7280;
+}
+
+html[data-theme="dark"] .starBtn {
+  border-color: #808897;
+  color: #808897;
 }
 
 .starBtn:hover {
-  border-color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 8%, transparent 92%);
-  color: var(--brand);
+  border-color: #FFC107;
+  background: color-mix(in srgb, #FFC107 8%, transparent 92%);
+  color: #FFC107;
 }
 
 .starBtn.filled {
-  background: var(--brand);
-  border-color: var(--brand);
+  background: #FFC107;
+  border-color: #FFC107;
   color: white;
 }
 
 .starIcon {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   fill: currentColor;
 }
 
 .moodEmoji {
-  font-size: 32px;
-  margin-bottom: 24px;
+  font-size: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .ratingSubmit {
@@ -3008,8 +4133,11 @@ html[data-theme="dark"] .logo-dark {
   border: none;
   border-radius: 12px;
   padding: 16px 32px;
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 16px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   cursor: pointer;
   transition: all 0.2s ease;
   width: 100%;
@@ -3025,27 +4153,37 @@ html[data-theme="dark"] .logo-dark {
   cursor: not-allowed;
 }
 
-/* Rating modal dismiss button */
-.ratingCard .nextAction {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
 
-.ratingCard .nextAction:hover {
-  background: color-mix(in srgb, var(--muted) 8%, transparent 92%);
-  border-color: var(--muted);
-  color: var(--text);
-}
 
 /* Responsive adjustments - removed duplicate */
 
 /* Responsive adjustments for download page */
+@media (max-width: 768px) {
+  .downloadContentContainer {
+    gap: 16px;
+  }
+  
+  .fileInfoPill {
+    display: flex;
+    flex-direction: row;      /* force horizontal */
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;      /* prevents wrapping into two lines */
+    flex-wrap: nowrap;
+    text-align: left;
+    padding: 16px 20px;
+  }
+  
+  .downloadButton {
+    min-width: 240px;
+    padding: 18px 24px;
+    font-size: 16px;
+  }
+}
+
 @media (max-width: 640px) {
   .downloadShell {
-    padding: 20px 16px;
+    padding: 20px 0;
   }
   
   .downloadCard {
@@ -3060,16 +4198,20 @@ html[data-theme="dark"] .logo-dark {
     font-size: 16px;
   }
   
+  .downloadContentContainer {
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  
   .downloadButton {
-    min-width: 240px;
-    padding: 18px 24px;
-    font-size: 16px;
+    min-width: 220px;
+    padding: 16px 20px;
+    font-size: 15px;
   }
   
   .fileInfoPill {
-    flex-direction: column;
-    gap: 8px;
-    padding: 16px 20px;
+    padding: 14px 18px;
+    font-size: 13px;
   }
   
   .quickActions {
@@ -3086,15 +4228,31 @@ html[data-theme="dark"] .logo-dark {
   .ratingCard {
     padding: 32px 24px;
     margin: 20px;
+    gap: 16px;
   }
   
   .ratingStars {
-    gap: 6px;
+    gap: 8px;
   }
   
   .starBtn {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
+  }
+  
+  .starIcon {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .moodEmoji {
+    font-size: 36px;
+    min-height: 36px;
+  }
+  
+  .ratingSubmit {
+    padding: 14px 24px;
+    font-size: 15px;
   }
   
   .copyToast {
@@ -3121,6 +4279,60 @@ html[data-theme="dark"] .logo-dark {
   position: fixed;
   z-index: 2000;
   pointer-events: none;
+}
+
+/* --- Tighten space between preview and filename --- */
+/* CSS variable now defined at the top of the file */
+
+/* REMOVED - padding now handled by main .pdfPreview rule above */
+
+/* REMOVED - styling now handled by main .pdfName rule above */
+
+/* REMOVED - no longer needed as conflicting rules have been cleaned up */
+
+/* Tablet: center a larger floating CTA */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .mobileMergeButton {
+    left: 50%;
+    right: auto;
+    bottom: 24px;
+    transform: translateX(-50%);
+    width: auto;         /* don't span the viewport */
+  }
+  .mobileCtaMerge {
+    width: auto;         /* stop inheriting 100% width */
+    min-width: 420px;
+    max-width: 600px;    /* bigger button size */
+    padding: 20px 36px;  /* larger padding */
+    font-size: 20px;     /* bigger text */
+    line-height: 1;
+  }
+}
+
+/* Desktop: center a large (but not full-width) floating CTA */
+@media (min-width: 1025px) {
+  .mobileMergeButton {
+    left: 50%;
+    right: auto;
+    bottom: 24px;
+    transform: translateX(-50%);
+    width: auto;         /* don't span the viewport */
+  }
+  .mobileCtaMerge {
+    width: auto;         /* stop inheriting 100% width */
+    min-width: 400px;
+    max-width: 600px;    /* bigger button */
+    padding: 20px 36px;
+    font-size: 20px;
+  }
+}
+
+/* (Optional) make the CTA a touch smaller on very small phones */
+@media (max-width: 480px) {
+  .mobileCtaMerge {
+    font-size: 16px;
+    padding: 14px 20px;
+  }
 }
 
 
