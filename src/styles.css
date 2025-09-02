@@ -2566,6 +2566,10 @@ html[data-theme="dark"] .logo-dark {
   flex-direction: column;
   align-items: center;
   /* Allow tooltips to overflow */
+  /* ✅ Mobile drag & drop improvements */
+  overscroll-behavior-y: contain;
+  overflow-y: auto;
+  height: calc(100dvh - 80px - 120px); /* Adjust based on header + actionsSpacer */
   overflow: visible;
   box-sizing: border-box;
   /* Ensure tooltips can render above */
@@ -2588,6 +2592,8 @@ html[data-theme="dark"] .logo-dark {
   overflow: visible;
   /* Ensure tooltips can render above */
   position: relative;
+  /* ✅ Mobile touch controls */
+  touch-action: pan-y;
 }
 
 
@@ -4084,7 +4090,7 @@ body.modal-open .floatingActions {
 
 .starBtn {
   background: transparent;
-  border: 2px solid #6B7280;
+  border: none;
   border-radius: 12px;
   width: 48px;
   height: 48px;
@@ -4093,35 +4099,47 @@ body.modal-open .floatingActions {
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: #6B7280;
+  color: #D1D5DB;
+  /* ✅ Ensure minimum 40px touch target */
+  padding: 8px;
+  min-width: 40px;
+  min-height: 40px;
 }
 
 html[data-theme="dark"] .starBtn {
-  border-color: #808897;
-  color: #808897;
+  color: #8A8F98;
 }
 
 .starBtn:hover {
-  border-color: #FFC107;
   background: color-mix(in srgb, #FFC107 8%, transparent 92%);
   color: #FFC107;
+  transform: scale(1.05);
 }
 
 .starBtn.filled {
-  background: #FFC107;
-  border-color: #FFC107;
-  color: white;
+  background: transparent;
+  color: #FFC107;
+}
+
+.starBtn:focus {
+  outline: 2px solid #FFC107;
+  outline-offset: 2px;
+}
+
+.starBtn:active {
+  transform: scale(0.96);
 }
 
 .starIcon {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   fill: currentColor;
+  stroke: none;
 }
 
 .moodEmoji {
-  font-size: 44px;
-  min-height: 44px;
+  font-size: 52px;
+  min-height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4236,18 +4254,19 @@ html[data-theme="dark"] .starBtn {
   }
   
   .starBtn {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
+    padding: 6px;
   }
   
   .starIcon {
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
   }
   
   .moodEmoji {
-    font-size: 36px;
-    min-height: 36px;
+    font-size: 48px;
+    min-height: 48px;
   }
   
   .ratingSubmit {
@@ -4333,6 +4352,21 @@ html[data-theme="dark"] .starBtn {
     font-size: 16px;
     padding: 14px 20px;
   }
+}
+
+/* ✅ Mobile drag & drop state management */
+.is-dragging body,
+.is-dragging .appShell {
+  overflow: hidden;
+}
+
+.is-dragging .pdfTilesContainer,
+.is-dragging .pdfTilesGrid {
+  touch-action: none;
+}
+
+.is-dragging .pdfTile {
+  touch-action: none;
 }
 
 

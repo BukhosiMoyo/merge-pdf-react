@@ -131,7 +131,7 @@ export default function RatingDialog({
               type="button"
             >
               <svg viewBox="0 0 24 24" className="starIcon" aria-hidden>
-                <path d="M12 2.5l3.09 6.26 6.91 1.01-5 4.86 1.18 6.87L12 18.77 5.82 21.5 7 14.63l-5-4.86 6.91-1.01L12 2.5z" />
+                <path d="M12 2.5l3.09 6.26 6.91 1.01-5 4.86 1.18 6.87L12 18.77 5.82 21.5 7 14.63l-5-4.86 6.91-1.01L12 2.5z" fill="currentColor" stroke="none" />
               </svg>
             </button>
           ))}

@@ -5,7 +5,7 @@ import StatsAndFAQ from "../components/StatsAndFAQ.jsx";
 import Seo from "../components/Seo.jsx";
 import PdfInspectModal from "../components/PdfInspectModal.jsx";
 import { absolutizeApiUrl } from "../utils/urlUtils.js";
-import { DndContext, DragOverlay, rectIntersection, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, DragOverlay, rectIntersection, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -235,6 +235,12 @@ export default function Merge() {
 
   // Drag and Drop sensors - improved for mobile
   const sensors = useSensors(
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // Long-press to begin drag
+        tolerance: 6, // Ignore tiny movements
+      },
+    }),
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8, // Small distance threshold for reliable activation
@@ -606,6 +612,18 @@ export default function Merge() {
     setActiveId(id);
     setActiveItem(files.find(f => f.id === id) || null);
     setIsDragging(true);
+    
+    // ✅ Freeze page scroll while dragging
+    document.documentElement.classList.add('is-dragging');
+    
+    // ✅ Prevent iOS bounce/PTR during drag
+    const preventTouchMove = (e) => {
+      e.preventDefault();
+    };
+    document.addEventListener('touchmove', preventTouchMove, { passive: false });
+    
+    // Store the handler for cleanup
+    document._preventTouchMove = preventTouchMove;
   }
 
   function handleDragOver(event) {
@@ -618,6 +636,15 @@ export default function Merge() {
     setActiveId(null);
     setActiveItem(null);
     setIsDragging(false);
+    
+    // ✅ Restore page scroll after dragging
+    document.documentElement.classList.remove('is-dragging');
+    
+    // ✅ Clean up iOS touchmove prevention
+    if (document._preventTouchMove) {
+      document.removeEventListener('touchmove', document._preventTouchMove);
+      delete document._preventTouchMove;
+    }
     
     if (!over || active.id === over.id) return;
     
