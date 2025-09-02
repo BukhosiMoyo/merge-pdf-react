@@ -170,7 +170,39 @@ export default function Download() {
     let alive = true;
     (async () => {
       try {
-        // Try HEAD request first to get file size
+        // ✅ Try metadata endpoint first for tokenized URLs
+        const url = new URL(downloadUrl);
+        if (url.pathname.includes('/v1/jobs/')) {
+          // Extract jobId from URL like /v1/jobs/mpdf_12345678/download?token=...
+          const jobId = url.pathname.split('/v1/jobs/')[1]?.split('/')[0];
+          if (jobId) {
+            const apiBase = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+            const metaUrl = `${apiBase}/v1/meta/${jobId}`;
+            
+            try {
+              const metaResponse = await fetch(metaUrl);
+              if (metaResponse.ok) {
+                const meta = await metaResponse.json();
+                if (alive) {
+                  if (meta.bytes) setFileSize(meta.bytes);
+                  if (meta.pages) setPageCount(meta.pages);
+                  if (meta.expires_at) {
+                    const expiry = new Date(meta.expires_at);
+                    if (Date.now() > expiry.getTime()) {
+                      setIsExpired(true);
+                    }
+                  }
+                }
+                return; // Success, exit early
+              }
+            } catch (metaError) {
+              console.warn("Failed to fetch metadata from API:", metaError);
+              // Fall through to HEAD request fallback
+            }
+          }
+        }
+        
+        // Fallback: Try HEAD request for direct URLs
         const r = await fetch(downloadUrl, { method: "HEAD" });
         if (alive && r.ok) {
           // ✅ Check content-type to prevent HTML downloads
