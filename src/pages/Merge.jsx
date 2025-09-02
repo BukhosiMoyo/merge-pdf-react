@@ -301,7 +301,17 @@ export default function Merge() {
       const viewport = page.getViewport({ scale: 0.5 });
       
       const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
+      let context;
+      try {
+        context = canvas.getContext('2d');
+        if (!context) {
+          throw new Error('Could not get 2D context from canvas');
+        }
+      } catch (error) {
+        console.warn('Canvas context error:', error);
+        return { thumbnail: null, pageCount };
+      }
+      
       canvas.height = viewport.height;
       canvas.width = viewport.width;
       

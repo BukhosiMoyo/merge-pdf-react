@@ -167,29 +167,7 @@ export default function Download() {
     let alive = true;
     (async () => {
       try {
-        // First try to get metadata from the API if we have an ID
-        if (id) {
-          try {
-            const metaResponse = await fetch(`${import.meta.env.VITE_API_BASE}/v1/meta/${id}`);
-            if (metaResponse.ok) {
-              const meta = await metaResponse.json();
-              if (alive) {
-                if (meta.bytes) setFileSize(meta.bytes);
-                if (meta.pages) setPageCount(meta.pages);
-                if (meta.expires_at && !expiresAt) {
-                  // Update expiry if not already set
-                  const newExpiry = new Date(meta.expires_at);
-                  setIsExpired(new Date() > newExpiry);
-                }
-              }
-              return; // Successfully got metadata, no need to fetch file
-            }
-          } catch (err) {
-            console.warn("Failed to fetch metadata, falling back to file HEAD request");
-          }
-        }
-
-        // Fallback to HEAD request
+        // Try HEAD request first to get file size
         const r = await fetch(downloadUrl, { method: "HEAD" });
         if (alive && r.ok) {
           const len = r.headers.get("content-length");
@@ -201,8 +179,12 @@ export default function Download() {
             const pageMatch = disposition.match(/pages=(\d+)/i);
             if (pageMatch) setPageCount(Number(pageMatch[1]));
           }
+        } else if (alive && r.status === 404) {
+          // File not found, mark as expired
+          setIsExpired(true);
         }
-      } catch {
+      } catch (error) {
+        console.warn("Failed to fetch file metadata:", error);
         if (alive) {
           setFileSize(null);
           setPageCount(null);
@@ -210,7 +192,7 @@ export default function Download() {
       }
     })();
     return () => { alive = false; };
-  }, [downloadUrl, id, expiresAt, isExpired]);
+  }, [downloadUrl, isExpired]);
 
   // Load PDF.js and get page count if not already available
   useEffect(() => {
@@ -231,10 +213,12 @@ export default function Download() {
           window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
 
-        // Get page count from PDF
+        // Get page count from PDF with better error handling
         const pdf = await window.pdfjsLib.getDocument({ 
           url: downloadUrl, 
-          withCredentials: true 
+          withCredentials: true,
+          disableAutoFetch: true,
+          disableStream: true
         }).promise;
         
         if (alive) {
@@ -242,6 +226,10 @@ export default function Download() {
         }
       } catch (error) {
         console.warn('Failed to load PDF for page count:', error);
+        // If it's a 404 or similar, mark as expired
+        if (error.name === 'MissingPDFException' || error.message.includes('404')) {
+          setIsExpired(true);
+        }
         // Don't break the UI if PDF loading fails
       }
     })();

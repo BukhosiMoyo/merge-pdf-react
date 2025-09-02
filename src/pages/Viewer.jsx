@@ -70,17 +70,24 @@ export default function Viewer() {
           window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
         
-        // Load PDF using PDF.js
+        // Load PDF using PDF.js with better error handling
         const pdf = await window.pdfjsLib.getDocument({ 
           url: fileUrl, 
-          withCredentials: true 
+          withCredentials: true,
+          disableAutoFetch: true,
+          disableStream: true
         }).promise;
         
         setPdfDocument(pdf);
         setShowModal(true);
       } catch (err) {
         console.error("Error loading PDF:", err);
-        setError("Failed to load PDF. The file may have expired or been removed.");
+        // Check if it's a 404 or missing PDF error
+        if (err.name === 'MissingPDFException' || err.message.includes('404')) {
+          setError("This link has expired. Files are deleted after 1 hour.");
+        } else {
+          setError("Failed to load PDF. The file may have expired or been removed.");
+        }
       } finally {
         setLoading(false);
       }
