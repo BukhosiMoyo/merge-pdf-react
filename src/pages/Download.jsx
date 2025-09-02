@@ -482,8 +482,8 @@ export default function Download() {
               ref={dlRef} 
               href={downloadUrl} 
               className="downloadButton" 
-              download={fileName}
-              title={fileName}
+              download="Merge PDF File.pdf"
+              title="Merge PDF File.pdf"
             >
               <IcDownload size={20} />
               <span>{t.downloadMerged}</span>
