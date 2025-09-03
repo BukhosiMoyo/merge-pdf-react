@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://mergepdf.co.za/sitemap.xml
