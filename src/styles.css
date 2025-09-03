@@ -4090,7 +4090,7 @@ body.modal-open .floatingActions {
 
 .starBtn {
   background: transparent;
-  border: none;
+  border: 2px solid var(--border);
   border-radius: 12px;
   width: 48px;
   height: 48px;
@@ -4101,7 +4101,7 @@ body.modal-open .floatingActions {
   transition: all 0.2s ease;
   color: #D1D5DB;
   /* ✅ Ensure minimum 40px touch target */
-  padding: 8px;
+  padding: 6px;
   min-width: 40px;
   min-height: 40px;
 }
@@ -4113,16 +4113,18 @@ html[data-theme="dark"] .starBtn {
 .starBtn:hover {
   background: color-mix(in srgb, #FFC107 8%, transparent 92%);
   color: #FFC107;
+  border-color: #FFC107;
   transform: scale(1.05);
 }
 
 .starBtn.filled {
   background: transparent;
   color: #FFC107;
+  border-color: #FFC107;
 }
 
 .starBtn:focus {
-  outline: 2px solid #FFC107;
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 
@@ -4131,8 +4133,8 @@ html[data-theme="dark"] .starBtn {
 }
 
 .starIcon {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   fill: currentColor;
   stroke: none;
 }
