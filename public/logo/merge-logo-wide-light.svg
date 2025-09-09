@@ -1,0 +1,23 @@
+<svg width="360" height="96" viewBox="0 0 360 96" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Merge PDF logo (stacked)">
+  <defs>
+    <linearGradient id="gS" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3B82F6"></stop>
+      <stop offset="1" stop-color="#2563EB"></stop>
+    </linearGradient>
+  </defs>
+
+  <!-- Icon -->
+  <g transform="translate(8,20)">
+    <rect x="0" y="0" width="56" height="56" rx="14" fill="url(#gS)"></rect>
+    <path d="M18 18h14l7 7v18a2 2 0 0 1-2 2H18a2 2 0 0 1-2-2V20a2 2 0 0 1 2-2z" fill="white" opacity=".97"></path>
+    <path d="M27 16h14l7 7v18a2 2 0 0 1-2 2H27a2 2 0 0 1-2-2V18a2 2 0 0 1 2-2z" fill="white" opacity=".82"></path>
+    <rect x="22" y="36" width="24" height="3.2" rx="1.6" fill="#1E40AF" opacity=".9"></rect>
+  </g>
+
+  <!-- Big wordmark aligned vertically with icon -->
+  <g transform="translate(80,64)" fill="#0F172A">
+    <text font-family="Poppins, Nunito, ui-rounded, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="40" font-weight="800" letter-spacing=".2">
+      Merge <tspan fill="#2563EB">PDF</tspan>
+    </text>
+  </g>
+</svg>
